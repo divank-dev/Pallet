@@ -3,6 +3,7 @@ import { X, Plus, Trash2, Check, AlertCircle, ShoppingCart, FileText, Package, P
 import { Order, OrderStatus, ViewMode, LineItem, ProductionMethod, STAGE_NUMBER, LeadSource, LeadTemperature, LeadInfo, ArtPlacement, ArtProof, ArtConfirmation, ArtFile, ArtRevision, ArtFileType } from '../types';
 import { calculatePrice } from '../utils/pricing';
 import { DEFAULT_LEAD_INFO, DEFAULT_ART_CONFIRMATION } from '../constants';
+import { useAuth } from '../contexts/AuthContext';
 
 interface OrderSlideOverProps {
   order: Order;
@@ -1459,6 +1460,7 @@ const ClosedOrderPanel: React.FC<ClosedOrderPanelProps> = ({ order, onUpdate }) 
 };
 
 const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClose, onUpdate }) => {
+  const { permissions } = useAuth();
   const [showAddItem, setShowAddItem] = useState(false);
   const [skuConfig, setSkuConfig] = useState<SkuConfig>(createEmptySkuConfig());
 

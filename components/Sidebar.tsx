@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { ShoppingBag, Box, Settings, Shirt, BarChart3 } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 
 interface SidebarProps {
   activeView: 'orders' | 'settings' | 'reports' | 'fulfillment';
@@ -11,12 +12,14 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ activeView, onSettingsClick, onOrdersClick, onReportsClick, onFulfillmentClick }) => {
+  const { permissions } = useAuth();
+
   const items = [
-    { icon: ShoppingBag, label: 'Orders', active: activeView === 'orders', onClick: onOrdersClick },
-    { icon: BarChart3, label: 'Reports', active: activeView === 'reports', onClick: onReportsClick },
-    { icon: Box, label: 'Fulfillment', active: activeView === 'fulfillment', onClick: onFulfillmentClick },
-    { icon: Settings, label: 'Settings', active: activeView === 'settings', onClick: onSettingsClick },
-  ];
+    { icon: ShoppingBag, label: 'Orders', active: activeView === 'orders', onClick: onOrdersClick, visible: true },
+    { icon: BarChart3, label: 'Reports', active: activeView === 'reports', onClick: onReportsClick, visible: permissions.canViewReports },
+    { icon: Box, label: 'Fulfillment', active: activeView === 'fulfillment', onClick: onFulfillmentClick, visible: permissions.canAccessFulfillmentTracking },
+    { icon: Settings, label: 'Settings', active: activeView === 'settings', onClick: onSettingsClick, visible: permissions.canAccessSettings },
+  ].filter(item => item.visible);
 
   return (
     <div className="w-20 bg-slate-900 h-full flex flex-col items-center py-6 gap-8">

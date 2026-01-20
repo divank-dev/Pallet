@@ -1,11 +1,14 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import {
   X, Download, FileText, Shield, Book, Database,
   ChevronRight, Lock, Key, Users, Server, AlertTriangle,
   CheckCircle, Clock, Settings, HardDrive, FileDown, Layers,
-  ArrowRight, GitBranch, Box
+  ArrowRight, GitBranch, Box, Upload, UserPlus, Trash2, Edit2,
+  LogOut, Building2, FileSpreadsheet
 } from 'lucide-react';
-import { Order, SCHEMA_DEFINITION } from '../types';
+import * as XLSX from 'xlsx';
+import { Order, SCHEMA_DEFINITION, User, UserRole } from '../types';
+import { useAuth } from '../contexts/AuthContext';
 
 interface SettingsPageProps {
   orders: Order[];
@@ -16,6 +19,143 @@ type SettingsTab = 'data' | 'schema' | 'sop' | 'specification' | 'security';
 
 const SettingsPage: React.FC<SettingsPageProps> = ({ orders, onClose }) => {
   const [activeTab, setActiveTab] = useState<SettingsTab>('data');
+  const { currentUser, orgHierarchy, addUser, updateUser, deleteUser, importUsersFromCSV, logout, permissions } = useAuth();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // User management state
+  const [showAddUser, setShowAddUser] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [importResults, setImportResults] = useState<{ success: number; errors: string[] } | null>(null);
+  const [newUser, setNewUser] = useState({
+    username: '',
+    password: '',
+    displayName: '',
+    email: '',
+    role: 'Sales' as UserRole,
+    department: '',
+    reportsTo: ''
+  });
+
+  // Password change state (for admin resetting any user)
+  const [passwordChangeUser, setPasswordChangeUser] = useState<string>('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordChangeSuccess, setPasswordChangeSuccess] = useState(false);
+  const [passwordChangeError, setPasswordChangeError] = useState('');
+
+  // Self-service password change state (for changing own password)
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [myNewPassword, setMyNewPassword] = useState('');
+  const [myConfirmPassword, setMyConfirmPassword] = useState('');
+  const [myPasswordSuccess, setMyPasswordSuccess] = useState(false);
+  const [myPasswordError, setMyPasswordError] = useState('');
+
+  // Handle admin resetting any user's password
+  const handlePasswordChange = () => {
+    setPasswordChangeError('');
+    setPasswordChangeSuccess(false);
+
+    if (!passwordChangeUser) {
+      setPasswordChangeError('Please select a user');
+      return;
+    }
+    if (!newPassword) {
+      setPasswordChangeError('Please enter a new password');
+      return;
+    }
+    if (newPassword.length < 4) {
+      setPasswordChangeError('Password must be at least 4 characters');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordChangeError('Passwords do not match');
+      return;
+    }
+
+    updateUser(passwordChangeUser, { password: newPassword });
+    setPasswordChangeSuccess(true);
+    setNewPassword('');
+    setConfirmPassword('');
+    setPasswordChangeUser('');
+
+    // Clear success message after 3 seconds
+    setTimeout(() => setPasswordChangeSuccess(false), 3000);
+  };
+
+  // Handle user changing their own password
+  const handleMyPasswordChange = () => {
+    setMyPasswordError('');
+    setMyPasswordSuccess(false);
+
+    if (!currentPassword) {
+      setMyPasswordError('Please enter your current password');
+      return;
+    }
+    if (currentPassword !== currentUser?.password) {
+      setMyPasswordError('Current password is incorrect');
+      return;
+    }
+    if (!myNewPassword) {
+      setMyPasswordError('Please enter a new password');
+      return;
+    }
+    if (myNewPassword.length < 4) {
+      setMyPasswordError('Password must be at least 4 characters');
+      return;
+    }
+    if (myNewPassword === currentPassword) {
+      setMyPasswordError('New password must be different from current password');
+      return;
+    }
+    if (myNewPassword !== myConfirmPassword) {
+      setMyPasswordError('New passwords do not match');
+      return;
+    }
+
+    updateUser(currentUser!.id, { password: myNewPassword });
+    setMyPasswordSuccess(true);
+    setCurrentPassword('');
+    setMyNewPassword('');
+    setMyConfirmPassword('');
+
+    // Clear success message after 3 seconds
+    setTimeout(() => setMyPasswordSuccess(false), 3000);
+  };
+
+  const handleAddUser = () => {
+    if (!newUser.username || !newUser.password || !newUser.displayName) return;
+    addUser({
+      ...newUser,
+      isActive: true
+    });
+    setNewUser({ username: '', password: '', displayName: '', email: '', role: 'Sales', department: '', reportsTo: '' });
+    setShowAddUser(false);
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target?.result as string;
+      const results = importUsersFromCSV(content);
+      setImportResults(results);
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
+  const downloadCSVTemplate = () => {
+    const template = 'username,password,displayName,email,role,department,reportsTo\njsmith,password123,John Smith,john@company.com,Sales,Sales Team,\nmjones,password456,Mary Jones,mary@company.com,Production,Production Floor,jsmith';
+    const blob = new Blob([template], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'user-import-template.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const tabs = [
     { id: 'data' as SettingsTab, label: 'Data & Backups', icon: Database },
@@ -179,6 +319,219 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ orders, onClose }) => {
     URL.revokeObjectURL(url);
   };
 
+  // Comprehensive Excel Export for System Rebuild
+  const exportSystemExcel = () => {
+    const wb = XLSX.utils.book_new();
+
+    // 1. README / Instructions Sheet
+    const readmeData = [
+      ['PALLET SYSTEM BACKUP - RESTORE INSTRUCTIONS'],
+      [''],
+      ['Export Date:', new Date().toISOString()],
+      ['Schema Version:', SCHEMA_DEFINITION.version],
+      ['Total Orders:', orders.length],
+      ['Total Users:', orgHierarchy.users.length],
+      [''],
+      ['RESTORATION PROCEDURE:'],
+      ['1. Import Users sheet first to restore org hierarchy'],
+      ['2. Import Orders sheet to restore all order data'],
+      ['3. Import LineItems sheet to restore line item details'],
+      ['4. Import History sheet to restore audit trail'],
+      ['5. Import ArtPlacements sheet to restore art confirmation data'],
+      [''],
+      ['SHEET DESCRIPTIONS:'],
+      ['- Users: All user accounts with roles and departments'],
+      ['- Orders: Core order data (one row per order)'],
+      ['- LineItems: All line items with order references'],
+      ['- History: Audit trail of all status changes'],
+      ['- ArtPlacements: Art placement and proof data'],
+      ['- Fulfillment: Shipping and delivery information'],
+      [''],
+      ['NOTES:'],
+      ['- Passwords are included for user restoration'],
+      ['- Dates are in ISO 8601 format'],
+      ['- Boolean values are TRUE/FALSE'],
+      ['- Empty cells indicate null/undefined values'],
+    ];
+    const wsReadme = XLSX.utils.aoa_to_sheet(readmeData);
+    wsReadme['!cols'] = [{ wch: 50 }, { wch: 40 }];
+    XLSX.utils.book_append_sheet(wb, wsReadme, 'README');
+
+    // 2. Users Sheet
+    const usersData = orgHierarchy.users.map(user => ({
+      id: user.id,
+      username: user.username,
+      password: user.password,
+      displayName: user.displayName,
+      email: user.email || '',
+      role: user.role,
+      department: user.department || '',
+      reportsTo: user.reportsTo || '',
+      isActive: user.isActive,
+      createdAt: user.createdAt ? new Date(user.createdAt).toISOString() : '',
+      lastLoginAt: user.lastLoginAt ? new Date(user.lastLoginAt).toISOString() : ''
+    }));
+    const wsUsers = XLSX.utils.json_to_sheet(usersData);
+    XLSX.utils.book_append_sheet(wb, wsUsers, 'Users');
+
+    // 3. Departments Sheet
+    const deptData = orgHierarchy.departments.map(dept => ({
+      department: dept,
+      userCount: orgHierarchy.users.filter(u => u.department === dept && u.isActive).length
+    }));
+    const wsDepts = XLSX.utils.json_to_sheet(deptData);
+    XLSX.utils.book_append_sheet(wb, wsDepts, 'Departments');
+
+    // 4. Orders Sheet (flattened core order data)
+    const ordersData = orders.map(order => ({
+      id: order.id,
+      orderNumber: order.orderNumber,
+      customer: order.customer,
+      customerEmail: order.customerEmail || '',
+      customerPhone: order.customerPhone || '',
+      projectName: order.projectName,
+      status: order.status,
+      artStatus: order.artStatus,
+      rushOrder: order.rushOrder,
+      isArchived: order.isArchived,
+      dueDate: order.dueDate,
+      createdAt: order.createdAt ? new Date(order.createdAt).toISOString() : '',
+      updatedAt: order.updatedAt ? new Date(order.updatedAt).toISOString() : '',
+      // Lead Info
+      leadSource: order.leadInfo?.source || '',
+      leadTemperature: order.leadInfo?.temperature || '',
+      leadNotes: order.leadInfo?.notes || '',
+      leadFollowUpDate: order.leadInfo?.followUpDate || '',
+      // Prep Status
+      gangSheetCreated: order.prepStatus?.gangSheetCreated || false,
+      artworkDigitized: order.prepStatus?.artworkDigitized || false,
+      screensBurned: order.prepStatus?.screensBurned || false,
+      // Invoice Status
+      invoiceCreated: order.invoiceStatus?.invoiceCreated || false,
+      invoiceSent: order.invoiceStatus?.invoiceSent || false,
+      invoicePaid: order.invoiceStatus?.invoicePaid || false,
+      invoiceNumber: order.invoiceStatus?.invoiceNumber || '',
+      // Closeout
+      closeoutFilesSaved: order.closeoutChecklist?.filesSaved || false,
+      closeoutCanvaArchived: order.closeoutChecklist?.canvaArchived || false,
+      closeoutSummaryUploaded: order.closeoutChecklist?.summaryUploaded || false,
+      closedAt: order.closedAt ? new Date(order.closedAt).toISOString() : ''
+    }));
+    const wsOrders = XLSX.utils.json_to_sheet(ordersData);
+    XLSX.utils.book_append_sheet(wb, wsOrders, 'Orders');
+
+    // 5. Line Items Sheet
+    const lineItemsData: any[] = [];
+    orders.forEach(order => {
+      order.lineItems.forEach(li => {
+        lineItemsData.push({
+          orderId: order.id,
+          orderNumber: order.orderNumber,
+          customer: order.customer,
+          lineItemId: li.id,
+          itemNumber: li.itemNumber,
+          name: li.name,
+          color: li.color,
+          size: li.size,
+          qty: li.qty,
+          cost: li.cost,
+          price: li.price,
+          decorationType: li.decorationType,
+          decorationPlacements: li.decorationPlacements,
+          decorationDescription: li.decorationDescription || '',
+          screenPrintColors: li.screenPrintColors || 0,
+          stitchCountTier: li.stitchCountTier || '',
+          dtfSize: li.dtfSize || '',
+          ordered: li.ordered || false,
+          orderedAt: li.orderedAt ? new Date(li.orderedAt).toISOString() : '',
+          received: li.received || false,
+          receivedAt: li.receivedAt ? new Date(li.receivedAt).toISOString() : '',
+          decorated: li.decorated || false,
+          decoratedAt: li.decoratedAt ? new Date(li.decoratedAt).toISOString() : '',
+          packed: li.packed || false,
+          packedAt: li.packedAt ? new Date(li.packedAt).toISOString() : ''
+        });
+      });
+    });
+    const wsLineItems = XLSX.utils.json_to_sheet(lineItemsData);
+    XLSX.utils.book_append_sheet(wb, wsLineItems, 'LineItems');
+
+    // 6. History/Audit Trail Sheet
+    const historyData: any[] = [];
+    orders.forEach(order => {
+      order.history.forEach((entry, index) => {
+        historyData.push({
+          orderId: order.id,
+          orderNumber: order.orderNumber,
+          customer: order.customer,
+          entryIndex: index,
+          timestamp: entry.timestamp ? new Date(entry.timestamp).toISOString() : '',
+          userId: entry.userId || '',
+          userName: entry.userName || '',
+          action: entry.action,
+          previousValue: typeof entry.previousValue === 'object' ? JSON.stringify(entry.previousValue) : String(entry.previousValue || ''),
+          newValue: typeof entry.newValue === 'object' ? JSON.stringify(entry.newValue) : String(entry.newValue || ''),
+          notes: entry.notes || ''
+        });
+      });
+    });
+    const wsHistory = XLSX.utils.json_to_sheet(historyData);
+    XLSX.utils.book_append_sheet(wb, wsHistory, 'History');
+
+    // 7. Art Placements Sheet
+    const artData: any[] = [];
+    orders.forEach(order => {
+      if (order.artConfirmation?.placements) {
+        order.artConfirmation.placements.forEach(placement => {
+          artData.push({
+            orderId: order.id,
+            orderNumber: order.orderNumber,
+            customer: order.customer,
+            placementId: placement.id,
+            location: placement.location,
+            width: placement.width,
+            height: placement.height,
+            colorCount: placement.colorCount,
+            description: placement.description || '',
+            status: placement.status,
+            currentProofVersion: placement.currentProofVersion,
+            approvedAt: placement.approvedAt ? new Date(placement.approvedAt).toISOString() : '',
+            approvedBy: placement.approvedBy || ''
+          });
+        });
+      }
+    });
+    const wsArt = XLSX.utils.json_to_sheet(artData.length > 0 ? artData : [{ note: 'No art placements found' }]);
+    XLSX.utils.book_append_sheet(wb, wsArt, 'ArtPlacements');
+
+    // 8. Fulfillment Sheet
+    const fulfillmentData = orders.map(order => ({
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      customer: order.customer,
+      status: order.status,
+      shippingMethod: order.fulfillment?.shippingMethod || '',
+      trackingNumber: order.fulfillment?.trackingNumber || '',
+      shippingLabelPrinted: order.fulfillment?.shippingLabelPrinted || false,
+      customerPickedUp: order.fulfillment?.customerPickedUp || false,
+      fulfilledAt: order.fulfillment?.fulfilledAt ? new Date(order.fulfillment.fulfilledAt).toISOString() : '',
+      deliveryAddress: order.fulfillment?.deliveryAddress || '',
+      deliveryNotes: order.fulfillment?.notes || ''
+    }));
+    const wsFulfillment = XLSX.utils.json_to_sheet(fulfillmentData);
+    XLSX.utils.book_append_sheet(wb, wsFulfillment, 'Fulfillment');
+
+    // Generate and download
+    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `pallet-full-backup-${new Date().toISOString().split('T')[0]}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="flex-1 flex flex-col h-full bg-slate-50">
       {/* Header */}
@@ -283,6 +636,26 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ orders, onClose }) => {
                 <h4 className="font-bold text-slate-700 uppercase text-sm">Export Options</h4>
 
                 <div className="grid grid-cols-1 gap-4">
+                  {/* System Backup Excel - PRIMARY */}
+                  <div className="bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-xl p-6 flex items-center justify-between hover:shadow-lg transition-shadow">
+                    <div className="flex items-center gap-4">
+                      <div className="w-14 h-14 bg-white/20 rounded-xl flex items-center justify-center">
+                        <FileSpreadsheet className="text-white" size={28} />
+                      </div>
+                      <div>
+                        <h5 className="font-bold text-white text-lg">System Backup (Excel)</h5>
+                        <p className="text-sm text-emerald-100">Complete system export: orders, users, history, art data - structured for rebuild</p>
+                        <p className="text-xs text-white/80 mt-1">Use this for disaster recovery or system migration</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={exportSystemExcel}
+                      className="flex items-center gap-2 bg-white text-emerald-600 px-6 py-3 rounded-xl font-bold hover:bg-emerald-50 transition-colors"
+                    >
+                      <Download size={18} /> Download .xlsx
+                    </button>
+                  </div>
+
                   {/* Full Database Export */}
                   <div className="bg-white border-2 border-blue-200 rounded-xl p-6 flex items-center justify-between hover:shadow-lg transition-shadow">
                     <div className="flex items-center gap-4">
@@ -290,9 +663,9 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ orders, onClose }) => {
                         <Database className="text-white" size={28} />
                       </div>
                       <div>
-                        <h5 className="font-bold text-slate-900 text-lg">Full Database Export</h5>
+                        <h5 className="font-bold text-slate-900 text-lg">Full Database Export (JSON)</h5>
                         <p className="text-sm text-slate-500">Complete database with schema definition, metadata, and all orders</p>
-                        <p className="text-xs text-blue-600 mt-1">Recommended for full system backup or migration</p>
+                        <p className="text-xs text-blue-600 mt-1">Recommended for programmatic restore or migration</p>
                       </div>
                     </div>
                     <button
@@ -1201,113 +1574,429 @@ GET    /api/export/schema       # Schema definition`}</pre>
             </div>
           )}
 
-          {/* Security Tab */}
+          {/* Security & Users Tab */}
           {activeTab === 'security' && (
-            <div className="space-y-8 max-w-4xl">
+            <div className="space-y-8 max-w-5xl">
+              {/* Current User Info */}
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center text-white font-bold text-lg">
+                    {currentUser?.displayName?.split(' ').map(n => n[0]).join('').toUpperCase() || 'U'}
+                  </div>
+                  <div>
+                    <p className="font-bold text-blue-900">{currentUser?.displayName}</p>
+                    <p className="text-sm text-blue-600">{currentUser?.role} • {currentUser?.department || 'No department'}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={logout}
+                  className="flex items-center gap-2 px-4 py-2 bg-white border border-blue-200 rounded-lg text-blue-700 font-medium hover:bg-blue-100 transition-colors"
+                >
+                  <LogOut size={16} />
+                  Sign Out
+                </button>
+              </div>
+
+              {/* Change My Password - Available to all users */}
               <div>
-                <h3 className="text-xl font-bold text-slate-900 mb-2">Enterprise Security Configuration</h3>
-                <p className="text-slate-500">Configure security features for enterprise deployment.</p>
-              </div>
-
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
-                <AlertTriangle className="text-amber-600 flex-shrink-0 mt-0.5" size={20} />
-                <div>
-                  <p className="font-bold text-amber-800">Development Mode Active</p>
-                  <p className="text-sm text-amber-700">Security features below are configuration templates for production deployment.</p>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <h4 className="font-bold text-slate-700 uppercase text-sm">Authentication & Access Control</h4>
-
-                <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                        <Key className="text-blue-600" size={20} />
-                      </div>
-                      <div>
-                        <h5 className="font-bold text-slate-900">Single Sign-On (SSO)</h5>
-                        <p className="text-sm text-slate-500">SAML 2.0 / OAuth 2.0 / OpenID Connect</p>
-                      </div>
-                    </div>
-                    <span className="text-xs font-bold text-slate-400 uppercase">Available</span>
-                  </div>
-                </div>
-
-                <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                        <Users className="text-purple-600" size={20} />
-                      </div>
-                      <div>
-                        <h5 className="font-bold text-slate-900">Role-Based Access Control (RBAC)</h5>
-                        <p className="text-sm text-slate-500">Admin, Sales Manager, Production Lead, Viewer roles</p>
-                      </div>
-                    </div>
-                    <span className="text-xs font-bold text-slate-400 uppercase">Available</span>
-                  </div>
-                </div>
+                <h3 className="text-xl font-bold text-slate-900 mb-2">Change My Password</h3>
+                <p className="text-slate-500 mb-4">Update your own password. You'll need to enter your current password to confirm.</p>
 
                 <div className="bg-white border border-slate-200 rounded-xl p-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                        <Lock className="text-green-600" size={20} />
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Current Password</label>
+                      <input
+                        type="password"
+                        value={currentPassword}
+                        onChange={(e) => {
+                          setCurrentPassword(e.target.value);
+                          setMyPasswordError('');
+                        }}
+                        className="w-full border border-slate-200 rounded-lg px-3 py-2"
+                        placeholder="Enter current password"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase mb-1">New Password</label>
+                      <input
+                        type="password"
+                        value={myNewPassword}
+                        onChange={(e) => {
+                          setMyNewPassword(e.target.value);
+                          setMyPasswordError('');
+                        }}
+                        className="w-full border border-slate-200 rounded-lg px-3 py-2"
+                        placeholder="Enter new password"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Confirm New Password</label>
+                      <input
+                        type="password"
+                        value={myConfirmPassword}
+                        onChange={(e) => {
+                          setMyConfirmPassword(e.target.value);
+                          setMyPasswordError('');
+                        }}
+                        className="w-full border border-slate-200 rounded-lg px-3 py-2"
+                        placeholder="Confirm new password"
+                      />
+                    </div>
+                    <div className="flex items-end">
+                      <button
+                        onClick={handleMyPasswordChange}
+                        disabled={!currentPassword || !myNewPassword || !myConfirmPassword}
+                        className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-medium py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
+                      >
+                        <Lock size={16} />
+                        Update Password
+                      </button>
+                    </div>
+                  </div>
+
+                  {myPasswordError && (
+                    <div className="mt-4 flex items-center gap-2 text-red-600 bg-red-50 border border-red-200 rounded-lg p-3">
+                      <AlertTriangle size={16} />
+                      <span className="text-sm font-medium">{myPasswordError}</span>
+                    </div>
+                  )}
+
+                  {myPasswordSuccess && (
+                    <div className="mt-4 flex items-center gap-2 text-green-600 bg-green-50 border border-green-200 rounded-lg p-3">
+                      <CheckCircle size={16} />
+                      <span className="text-sm font-medium">Your password has been updated successfully!</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Reset Any User's Password - Admin Only */}
+              {permissions.canManageUsers && (
+                <div>
+                  <h3 className="text-xl font-bold text-slate-900 mb-2">Reset User Passwords</h3>
+                  <p className="text-slate-500 mb-4">As an administrator, you can reset passwords for any user including yourself without knowing their current password.</p>
+
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-6">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-amber-700 uppercase mb-1">Select User</label>
+                        <select
+                          value={passwordChangeUser}
+                          onChange={(e) => {
+                            setPasswordChangeUser(e.target.value);
+                            setPasswordChangeError('');
+                            setPasswordChangeSuccess(false);
+                          }}
+                          className="w-full border border-amber-300 rounded-lg px-3 py-2 bg-white"
+                        >
+                          <option value="">Choose a user...</option>
+                          {orgHierarchy.users
+                            .filter(u => u.isActive)
+                            .map(user => (
+                              <option key={user.id} value={user.id}>
+                                {user.displayName} ({user.username}) {user.id === currentUser?.id ? '← You' : ''}
+                              </option>
+                            ))}
+                        </select>
                       </div>
                       <div>
-                        <h5 className="font-bold text-slate-900">Multi-Factor Authentication (MFA)</h5>
-                        <p className="text-sm text-slate-500">TOTP, SMS, Hardware keys</p>
+                        <label className="block text-xs font-bold text-amber-700 uppercase mb-1">New Password</label>
+                        <input
+                          type="password"
+                          value={newPassword}
+                          onChange={(e) => {
+                            setNewPassword(e.target.value);
+                            setPasswordChangeError('');
+                          }}
+                          className="w-full border border-amber-300 rounded-lg px-3 py-2"
+                          placeholder="Enter new password"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-amber-700 uppercase mb-1">Confirm Password</label>
+                        <input
+                          type="password"
+                          value={confirmPassword}
+                          onChange={(e) => {
+                            setConfirmPassword(e.target.value);
+                            setPasswordChangeError('');
+                          }}
+                          className="w-full border border-amber-300 rounded-lg px-3 py-2"
+                          placeholder="Confirm password"
+                        />
+                      </div>
+                      <div className="flex items-end">
+                        <button
+                          onClick={handlePasswordChange}
+                          disabled={!passwordChangeUser || !newPassword || !confirmPassword}
+                          className="w-full bg-amber-600 hover:bg-amber-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-medium py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
+                        >
+                          <Key size={16} />
+                          Reset Password
+                        </button>
                       </div>
                     </div>
-                    <span className="text-xs font-bold text-slate-400 uppercase">Available</span>
+
+                    {passwordChangeError && (
+                      <div className="mt-4 flex items-center gap-2 text-red-600 bg-red-50 border border-red-200 rounded-lg p-3">
+                        <AlertTriangle size={16} />
+                        <span className="text-sm font-medium">{passwordChangeError}</span>
+                      </div>
+                    )}
+
+                    {passwordChangeSuccess && (
+                      <div className="mt-4 flex items-center gap-2 text-green-600 bg-green-50 border border-green-200 rounded-lg p-3">
+                        <CheckCircle size={16} />
+                        <span className="text-sm font-medium">Password has been reset successfully!</span>
+                      </div>
+                    )}
                   </div>
+                </div>
+              )}
+
+              {/* Organization Hierarchy Upload */}
+              <div>
+                <h3 className="text-xl font-bold text-slate-900 mb-2">Organization Hierarchy</h3>
+                <p className="text-slate-500 mb-4">Import users from a CSV file or add them manually.</p>
+
+                <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-4">
+                  {permissions.canImportUsers && (
+                    <div className="flex items-center gap-4">
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition-colors"
+                      >
+                        <Upload size={18} />
+                        Import CSV
+                      </button>
+                      <button
+                        onClick={downloadCSVTemplate}
+                        className="flex items-center gap-2 px-4 py-2 border border-slate-300 rounded-lg font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+                      >
+                        <Download size={18} />
+                        Download Template
+                      </button>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept=".csv"
+                        className="hidden"
+                        onChange={handleFileUpload}
+                      />
+                    </div>
+                  )}
+
+                  <div className="bg-slate-50 rounded-lg p-3">
+                    <p className="text-xs font-bold text-slate-500 uppercase mb-1">CSV Format</p>
+                    <p className="text-sm text-slate-600 font-mono">username,password,displayName,email,role,department,reportsTo</p>
+                    <p className="text-xs text-slate-500 mt-1">Roles: Admin, Manager, Sales, Production, Fulfillment, ReadOnly</p>
+                  </div>
+
+                  {importResults && (
+                    <div className={`rounded-lg p-4 ${importResults.errors.length > 0 ? 'bg-amber-50 border border-amber-200' : 'bg-green-50 border border-green-200'}`}>
+                      <p className="font-bold text-sm mb-2">
+                        {importResults.success > 0 && <span className="text-green-700">Imported {importResults.success} users. </span>}
+                        {importResults.errors.length > 0 && <span className="text-amber-700">{importResults.errors.length} errors.</span>}
+                      </p>
+                      {importResults.errors.length > 0 && (
+                        <ul className="text-sm text-amber-600 space-y-1">
+                          {importResults.errors.map((err, i) => <li key={i}>{err}</li>)}
+                        </ul>
+                      )}
+                      <button onClick={() => setImportResults(null)} className="text-xs text-slate-500 mt-2 hover:underline">Dismiss</button>
+                    </div>
+                  )}
                 </div>
               </div>
 
-              <div className="space-y-4">
-                <h4 className="font-bold text-slate-700 uppercase text-sm">Data Security</h4>
+              {/* User Management */}
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-xl font-bold text-slate-900">User Management</h3>
+                  {permissions.canCreateUsers && (
+                    <button
+                      onClick={() => setShowAddUser(true)}
+                      className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                    >
+                      <UserPlus size={18} />
+                      Add User
+                    </button>
+                  )}
+                </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-white border border-slate-200 rounded-xl p-4 flex items-center gap-3">
-                    <CheckCircle className="text-green-500 flex-shrink-0" size={20} />
-                    <div>
-                      <p className="font-bold text-slate-900 text-sm">Encryption at Rest</p>
-                      <p className="text-xs text-slate-500">AES-256</p>
+                {/* Add User Form */}
+                {showAddUser && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 mb-4">
+                    <h4 className="font-bold text-blue-800 mb-4">Add New User</h4>
+                    <div className="grid grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Username *</label>
+                        <input
+                          type="text"
+                          value={newUser.username}
+                          onChange={(e) => setNewUser({ ...newUser, username: e.target.value })}
+                          className="w-full border border-slate-200 rounded-lg px-3 py-2"
+                          placeholder="jsmith"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Password *</label>
+                        <input
+                          type="password"
+                          value={newUser.password}
+                          onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                          className="w-full border border-slate-200 rounded-lg px-3 py-2"
+                          placeholder="********"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Display Name *</label>
+                        <input
+                          type="text"
+                          value={newUser.displayName}
+                          onChange={(e) => setNewUser({ ...newUser, displayName: e.target.value })}
+                          className="w-full border border-slate-200 rounded-lg px-3 py-2"
+                          placeholder="John Smith"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Email</label>
+                        <input
+                          type="email"
+                          value={newUser.email}
+                          onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                          className="w-full border border-slate-200 rounded-lg px-3 py-2"
+                          placeholder="john@company.com"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Role *</label>
+                        <select
+                          value={newUser.role}
+                          onChange={(e) => setNewUser({ ...newUser, role: e.target.value as UserRole })}
+                          className="w-full border border-slate-200 rounded-lg px-3 py-2 bg-white"
+                        >
+                          <option value="Admin">Admin</option>
+                          <option value="Manager">Manager</option>
+                          <option value="Sales">Sales</option>
+                          <option value="Production">Production</option>
+                          <option value="Fulfillment">Fulfillment</option>
+                          <option value="ReadOnly">Read Only</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Department</label>
+                        <input
+                          type="text"
+                          value={newUser.department}
+                          onChange={(e) => setNewUser({ ...newUser, department: e.target.value })}
+                          className="w-full border border-slate-200 rounded-lg px-3 py-2"
+                          placeholder="Sales Team"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex gap-2 mt-4">
+                      <button
+                        onClick={handleAddUser}
+                        disabled={!newUser.username || !newUser.password || !newUser.displayName}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Add User
+                      </button>
+                      <button
+                        onClick={() => { setShowAddUser(false); setNewUser({ username: '', password: '', displayName: '', email: '', role: 'Sales', department: '', reportsTo: '' }); }}
+                        className="px-4 py-2 border border-slate-300 rounded-lg font-medium text-slate-600 hover:bg-slate-50"
+                      >
+                        Cancel
+                      </button>
                     </div>
                   </div>
-                  <div className="bg-white border border-slate-200 rounded-xl p-4 flex items-center gap-3">
-                    <CheckCircle className="text-green-500 flex-shrink-0" size={20} />
-                    <div>
-                      <p className="font-bold text-slate-900 text-sm">Encryption in Transit</p>
-                      <p className="text-xs text-slate-500">TLS 1.3</p>
-                    </div>
-                  </div>
-                  <div className="bg-white border border-slate-200 rounded-xl p-4 flex items-center gap-3">
-                    <CheckCircle className="text-green-500 flex-shrink-0" size={20} />
-                    <div>
-                      <p className="font-bold text-slate-900 text-sm">Audit Logging</p>
-                      <p className="text-xs text-slate-500">Full trail</p>
-                    </div>
-                  </div>
-                  <div className="bg-white border border-slate-200 rounded-xl p-4 flex items-center gap-3">
-                    <CheckCircle className="text-green-500 flex-shrink-0" size={20} />
-                    <div>
-                      <p className="font-bold text-slate-900 text-sm">Data Backup</p>
-                      <p className="text-xs text-slate-500">Full export available</p>
-                    </div>
-                  </div>
+                )}
+
+                {/* Users List */}
+                <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+                  <table className="w-full">
+                    <thead className="bg-slate-50 border-b border-slate-200">
+                      <tr>
+                        <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase">User</th>
+                        <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase">Username</th>
+                        <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase">Role</th>
+                        <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase">Department</th>
+                        <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase">Status</th>
+                        <th className="text-right px-4 py-3 text-xs font-bold text-slate-500 uppercase">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {orgHierarchy.users.map(user => (
+                        <tr key={user.id} className={`hover:bg-slate-50 ${!user.isActive ? 'opacity-50' : ''}`}>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 bg-slate-200 rounded-full flex items-center justify-center text-slate-600 font-bold text-sm">
+                                {user.displayName.split(' ').map(n => n[0]).join('').toUpperCase()}
+                              </div>
+                              <div>
+                                <p className="font-medium text-slate-900">{user.displayName}</p>
+                                {user.email && <p className="text-xs text-slate-500">{user.email}</p>}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 font-mono text-sm text-slate-600">{user.username}</td>
+                          <td className="px-4 py-3">
+                            <span className={`px-2 py-1 rounded-full text-xs font-bold ${
+                              user.role === 'Admin' ? 'bg-purple-100 text-purple-700' :
+                              user.role === 'Manager' ? 'bg-blue-100 text-blue-700' :
+                              user.role === 'Sales' ? 'bg-green-100 text-green-700' :
+                              user.role === 'Production' ? 'bg-amber-100 text-amber-700' :
+                              user.role === 'Fulfillment' ? 'bg-cyan-100 text-cyan-700' :
+                              'bg-slate-100 text-slate-600'
+                            }`}>
+                              {user.role}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-slate-600">{user.department || '-'}</td>
+                          <td className="px-4 py-3">
+                            <span className={`px-2 py-1 rounded-full text-xs font-bold ${user.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                              {user.isActive ? 'Active' : 'Inactive'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              {permissions.canDeleteUsers && user.id !== currentUser?.id && user.isActive && (
+                                <button
+                                  onClick={() => deleteUser(user.id)}
+                                  className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                                  title="Deactivate user"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              )}
+                              {user.id === currentUser?.id && (
+                                <span className="text-xs text-slate-400">(You)</span>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="mt-4 text-sm text-slate-500">
+                  <p><strong>{orgHierarchy.users.filter(u => u.isActive).length}</strong> active users • <strong>{orgHierarchy.departments.length}</strong> departments</p>
+                  <p className="text-xs mt-1">Last updated: {orgHierarchy.lastUpdatedAt.toLocaleString()}</p>
                 </div>
               </div>
 
-              <div className="space-y-4">
-                <h4 className="font-bold text-slate-700 uppercase text-sm">Compliance</h4>
-                <div className="grid grid-cols-4 gap-4">
-                  {['SOC 2 Type II', 'GDPR', 'CCPA', 'HIPAA Ready'].map(cert => (
-                    <div key={cert} className="bg-white border border-slate-200 rounded-xl p-4 flex items-center gap-2">
-                      <CheckCircle className="text-green-500 flex-shrink-0" size={16} />
-                      <span className="font-bold text-slate-900 text-sm">{cert}</span>
+              {/* Departments */}
+              <div>
+                <h3 className="text-xl font-bold text-slate-900 mb-4">Departments</h3>
+                <div className="flex flex-wrap gap-2">
+                  {orgHierarchy.departments.map(dept => (
+                    <div key={dept} className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-lg">
+                      <Building2 size={16} className="text-slate-400" />
+                      <span className="font-medium text-slate-700">{dept}</span>
+                      <span className="text-xs text-slate-500">({orgHierarchy.users.filter(u => u.department === dept && u.isActive).length})</span>
                     </div>
                   ))}
                 </div>

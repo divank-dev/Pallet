@@ -226,10 +226,44 @@ export interface FulfillmentStatus {
 export interface StatusChangeLog {
   timestamp: Date;
   userId?: string;
+  userName?: string;
   action: string;
   previousValue: any;
   newValue: any;
   notes?: string;
+}
+
+// ============================================
+// USER & AUTHENTICATION TYPES
+// ============================================
+
+export type UserRole = 'Admin' | 'Manager' | 'Sales' | 'Production' | 'Fulfillment' | 'ReadOnly';
+
+export interface User {
+  id: string;
+  username: string;
+  password: string;              // In production, this would be hashed
+  displayName: string;
+  email?: string;
+  role: UserRole;
+  department?: string;
+  reportsTo?: string;            // User ID of manager
+  isActive: boolean;
+  createdAt: Date;
+  lastLoginAt?: Date;
+}
+
+export interface OrgHierarchy {
+  users: User[];
+  departments: string[];
+  lastUpdatedAt: Date;
+  lastUpdatedBy?: string;
+}
+
+export interface AuthState {
+  isAuthenticated: boolean;
+  currentUser: User | null;
+  loginError?: string;
 }
 
 // Production Floor - Hourly Productivity Entry

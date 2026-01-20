@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Search, ChevronDown, Bell, X } from 'lucide-react';
-import { Order, OrderStatus, ViewMode } from './types';
+import { Search, ChevronDown, Bell, X, LogOut } from 'lucide-react';
+import { Order, OrderStatus, ViewMode, StatusChangeLog } from './types';
 import { DUMMY_ORDERS, ORDER_STAGES } from './constants';
 import { TEST_ORDERS } from './tests/testOrders';
 import Sidebar from './components/Sidebar';
@@ -15,8 +15,12 @@ import CustomerSearch from './components/CustomerSearch';
 import FulfillmentTrackingPage from './components/FulfillmentTrackingPage';
 import ProductionFloorPage from './components/ProductionFloorPage';
 import TestRunner from './tests/TestRunner';
+import LoginPage from './components/LoginPage';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 
-const App: React.FC = () => {
+// Main App Content (requires authentication)
+const AppContent: React.FC = () => {
+  const { currentUser, logout } = useAuth();
   const [orders, setOrders] = useState<Order[]>(TEST_ORDERS);
   const [currentStage, setCurrentStage] = useState<OrderStatus>('Lead');
   const [viewMode, setViewMode] = useState<ViewMode>('Sales');
@@ -40,6 +44,24 @@ const App: React.FC = () => {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [showTestRunner]);
+
+  // Helper to add audit log entry
+  const addAuditLog = (order: Order, action: string, previousValue: any, newValue: any, notes?: string): Order => {
+    const logEntry: StatusChangeLog = {
+      timestamp: new Date(),
+      userId: currentUser?.id,
+      userName: currentUser?.displayName,
+      action,
+      previousValue,
+      newValue,
+      notes
+    };
+    return {
+      ...order,
+      history: [...order.history, logEntry],
+      updatedAt: new Date()
+    };
+  };
 
   // When a customer is selected, show all their orders across all stages
   // When no customer is selected, show orders in the current stage
@@ -81,12 +103,35 @@ const App: React.FC = () => {
   }, [orders]);
 
   const handleUpdateOrder = (updated: Order) => {
-    setOrders(prev => prev.map(o => o.id === updated.id ? updated : o));
-    setSelectedOrder(updated);
+    // Find the original order to compare
+    const original = orders.find(o => o.id === updated.id);
+
+    // Add audit log for status changes
+    let orderWithAudit = updated;
+    if (original && original.status !== updated.status) {
+      orderWithAudit = addAuditLog(
+        updated,
+        'Status changed',
+        original.status,
+        updated.status,
+        `Stage advanced by ${currentUser?.displayName}`
+      );
+    }
+
+    setOrders(prev => prev.map(o => o.id === updated.id ? orderWithAudit : o));
+    setSelectedOrder(orderWithAudit);
   };
 
   const handleCreateOrder = (newOrder: any) => {
-    setOrders(prev => [newOrder as Order, ...prev]);
+    // Add creation audit log
+    const orderWithAudit = addAuditLog(
+      newOrder as Order,
+      'Order created',
+      null,
+      newOrder.status || 'Lead',
+      `Created by ${currentUser?.displayName}`
+    );
+    setOrders(prev => [orderWithAudit, ...prev]);
     setShowNewOrder(false);
     setCurrentStage(newOrder.status || 'Lead');
   };
@@ -188,11 +233,23 @@ const App: React.FC = () => {
                 <button className="p-2 text-slate-400 hover:text-slate-600">
                   <Bell size={20} />
                 </button>
-                <div className="flex items-center gap-2 pl-4 border-l border-slate-200">
-                  <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xs">
-                    JD
+                <div className="flex items-center gap-3 pl-4 border-l border-slate-200">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xs">
+                      {currentUser?.displayName?.split(' ').map(n => n[0]).join('').toUpperCase() || 'U'}
+                    </div>
+                    <div className="hidden sm:block">
+                      <p className="text-sm font-medium text-slate-700">{currentUser?.displayName}</p>
+                      <p className="text-xs text-slate-500">{currentUser?.role}</p>
+                    </div>
                   </div>
-                  <ChevronDown size={16} className="text-slate-400" />
+                  <button
+                    onClick={logout}
+                    className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                    title="Sign out"
+                  >
+                    <LogOut size={16} />
+                  </button>
                 </div>
               </div>
             </header>
@@ -323,6 +380,21 @@ const App: React.FC = () => {
         />
       )}
     </div>
+  );
+};
+
+// Component that checks auth and renders LoginPage or AppContent
+const AuthenticatedApp: React.FC = () => {
+  const { isAuthenticated } = useAuth();
+  return isAuthenticated ? <AppContent /> : <LoginPage />;
+};
+
+// Main App wrapper with AuthProvider
+const App: React.FC = () => {
+  return (
+    <AuthProvider>
+      <AuthenticatedApp />
+    </AuthProvider>
   );
 };
 

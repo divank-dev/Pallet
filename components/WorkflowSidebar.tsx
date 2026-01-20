@@ -3,6 +3,7 @@ import React from 'react';
 import { Plus, ChevronRight, Target, Archive, Monitor } from 'lucide-react';
 import { OrderStatus } from '../types';
 import { ORDER_STAGES } from '../constants';
+import { useAuth } from '../contexts/AuthContext';
 
 interface WorkflowSidebarProps {
   currentStage: OrderStatus;
@@ -14,21 +15,25 @@ interface WorkflowSidebarProps {
 }
 
 const WorkflowSidebar: React.FC<WorkflowSidebarProps> = ({ currentStage, counts, onStageSelect, onNewOrder, onProductionFloorClick, isProductionFloorActive }) => {
+  const { permissions } = useAuth();
+
   // Separate Lead from the rest of the workflow stages
   const leadStage = ORDER_STAGES[0]; // 'Lead'
   const workflowStages = ORDER_STAGES.slice(1); // Everything else
 
   return (
     <div className="w-72 bg-white border-r border-slate-200 flex flex-col">
-      <div className="p-6">
-        <button
-          onClick={onNewOrder}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-colors shadow-sm"
-        >
-          <Plus size={20} />
-          New Lead / Order
-        </button>
-      </div>
+      {permissions.canCreateOrders && (
+        <div className="p-6">
+          <button
+            onClick={onNewOrder}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-colors shadow-sm"
+          >
+            <Plus size={20} />
+            New Lead / Order
+          </button>
+        </div>
+      )}
 
       <div className="flex-1 overflow-y-auto px-3 pb-6">
         {/* Sales Funnel Section */}
@@ -146,45 +151,49 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = ({ currentStage, counts,
           </button>
         </nav>
 
-        {/* Divider */}
-        <div className="mx-3 border-t border-slate-200 my-3" />
+        {/* Operations Section - only show if user can access Production Floor */}
+        {permissions.canAccessProductionFloor && (
+          <>
+            {/* Divider */}
+            <div className="mx-3 border-t border-slate-200 my-3" />
 
-        {/* Operations Section */}
-        <div className="px-3 mb-2 text-xs font-bold text-purple-600 uppercase tracking-wider flex items-center gap-2">
-          <Monitor size={12} />
-          Operations
-        </div>
-        <nav className="space-y-1">
-          <button
-            onClick={onProductionFloorClick}
-            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-all group ${
-              isProductionFloorActive
-                ? 'bg-purple-50 text-purple-700'
-                : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-            }`}
-          >
-            <div className="flex items-center gap-3">
-              <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
-                isProductionFloorActive
-                  ? 'bg-purple-600 text-white'
-                  : 'bg-purple-100 text-purple-500'
-              }`}>
-                <Monitor size={12} />
-              </div>
-              <span className="text-sm font-medium">Production Floor</span>
+            <div className="px-3 mb-2 text-xs font-bold text-purple-600 uppercase tracking-wider flex items-center gap-2">
+              <Monitor size={12} />
+              Operations
             </div>
-            <div className="flex items-center gap-2">
-              <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${
-                isProductionFloorActive ? 'bg-purple-100 text-purple-700' : 'bg-purple-50 text-purple-500'
-              }`}>
-                TV
-              </span>
-              <ChevronRight size={14} className={`opacity-0 group-hover:opacity-100 transition-opacity ${
-                isProductionFloorActive ? 'text-purple-400' : 'text-slate-300'
-              }`} />
-            </div>
-          </button>
-        </nav>
+            <nav className="space-y-1">
+              <button
+                onClick={onProductionFloorClick}
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-all group ${
+                  isProductionFloorActive
+                    ? 'bg-purple-50 text-purple-700'
+                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
+                    isProductionFloorActive
+                      ? 'bg-purple-600 text-white'
+                      : 'bg-purple-100 text-purple-500'
+                  }`}>
+                    <Monitor size={12} />
+                  </div>
+                  <span className="text-sm font-medium">Production Floor</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${
+                    isProductionFloorActive ? 'bg-purple-100 text-purple-700' : 'bg-purple-50 text-purple-500'
+                  }`}>
+                    TV
+                  </span>
+                  <ChevronRight size={14} className={`opacity-0 group-hover:opacity-100 transition-opacity ${
+                    isProductionFloorActive ? 'text-purple-400' : 'text-slate-300'
+                  }`} />
+                </div>
+              </button>
+            </nav>
+          </>
+        )}
       </div>
     </div>
   );
