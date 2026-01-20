@@ -136,6 +136,15 @@ const AppContent: React.FC = () => {
     setCurrentStage(newOrder.status || 'Lead');
   };
 
+  // Handle deleting orders (Admin only)
+  const handleDeleteOrders = (orderIds: string[]) => {
+    setOrders(prev => prev.filter(o => !orderIds.includes(o.id)));
+    // Clear selection if deleted order was selected
+    if (selectedOrder && orderIds.includes(selectedOrder.id)) {
+      setSelectedOrder(null);
+    }
+  };
+
   return (
     <div className="flex h-screen bg-slate-50">
       <Sidebar
@@ -146,7 +155,7 @@ const AppContent: React.FC = () => {
         onFulfillmentClick={() => setActiveView('fulfillment')}
       />
       {activeView === 'settings' ? (
-        <SettingsPage orders={orders} onClose={() => setActiveView('orders')} />
+        <SettingsPage orders={orders} onClose={() => setActiveView('orders')} onDeleteOrders={handleDeleteOrders} />
       ) : activeView === 'reports' ? (
         <ReportsPage orders={orders} onClose={() => setActiveView('orders')} />
       ) : activeView === 'fulfillment' ? (

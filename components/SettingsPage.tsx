@@ -13,14 +13,21 @@ import { useAuth } from '../contexts/AuthContext';
 interface SettingsPageProps {
   orders: Order[];
   onClose: () => void;
+  onDeleteOrders?: (orderIds: string[]) => void;
 }
 
 type SettingsTab = 'data' | 'schema' | 'sop' | 'specification' | 'security';
 
-const SettingsPage: React.FC<SettingsPageProps> = ({ orders, onClose }) => {
+const SettingsPage: React.FC<SettingsPageProps> = ({ orders, onClose, onDeleteOrders }) => {
   const [activeTab, setActiveTab] = useState<SettingsTab>('data');
   const { currentUser, orgHierarchy, addUser, updateUser, deleteUser, importUsersFromCSV, logout, permissions } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Order deletion state (Admin only)
+  const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [orderSearchQuery, setOrderSearchQuery] = useState('');
 
   // User management state
   const [showAddUser, setShowAddUser] = useState(false);
@@ -191,6 +198,50 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ orders, onClose }) => {
       inProductionCount: orders.filter(o => ['Production Prep', 'Inventory Received', 'Production'].includes(o.status)).length
     };
   }, [orders]);
+
+  // Filtered orders for deletion table
+  const filteredOrdersForDeletion = useMemo(() => {
+    if (!orderSearchQuery.trim()) return orders;
+    const query = orderSearchQuery.toLowerCase();
+    return orders.filter(o =>
+      o.orderNumber.toLowerCase().includes(query) ||
+      o.customer.toLowerCase().includes(query) ||
+      o.projectName.toLowerCase().includes(query) ||
+      o.status.toLowerCase().includes(query)
+    );
+  }, [orders, orderSearchQuery]);
+
+  // Handle order selection for deletion
+  const toggleOrderSelection = (orderId: string) => {
+    setSelectedOrderIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(orderId)) {
+        newSet.delete(orderId);
+      } else {
+        newSet.add(orderId);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedOrderIds.size === filteredOrdersForDeletion.length) {
+      setSelectedOrderIds(new Set());
+    } else {
+      setSelectedOrderIds(new Set(filteredOrdersForDeletion.map(o => o.id)));
+    }
+  };
+
+  // Handle delete confirmation
+  const handleDeleteOrders = () => {
+    if (deleteConfirmText !== 'DELETE' || selectedOrderIds.size === 0) return;
+    if (onDeleteOrders) {
+      onDeleteOrders(Array.from(selectedOrderIds));
+    }
+    setSelectedOrderIds(new Set());
+    setShowDeleteConfirm(false);
+    setDeleteConfirmText('');
+  };
 
   // Data Export Functions
   const exportFullDatabase = () => {
@@ -749,6 +800,112 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ orders, onClose }) => {
                   </div>
                 </div>
               </div>
+
+              {/* Danger Zone - Admin Only */}
+              {permissions.canDeleteUsers && onDeleteOrders && (
+                <div className="space-y-4 mt-8 pt-8 border-t-2 border-red-200">
+                  <div className="flex items-center gap-3">
+                    <AlertTriangle className="text-red-600" size={24} />
+                    <div>
+                      <h4 className="font-bold text-red-700 uppercase text-sm">Danger Zone</h4>
+                      <p className="text-sm text-red-600">Permanently delete orders from the system. This action cannot be undone.</p>
+                    </div>
+                  </div>
+
+                  <div className="bg-red-50 border-2 border-red-200 rounded-xl p-6">
+                    <h5 className="font-bold text-red-800 mb-4">Delete Orders</h5>
+
+                    {/* Search */}
+                    <div className="mb-4">
+                      <input
+                        type="text"
+                        placeholder="Search by order number, customer, project, or status..."
+                        className="w-full border border-red-200 p-3 rounded-xl focus:ring-2 focus:ring-red-500 outline-none bg-white"
+                        value={orderSearchQuery}
+                        onChange={e => setOrderSearchQuery(e.target.value)}
+                      />
+                    </div>
+
+                    {/* Order Selection Table */}
+                    <div className="bg-white rounded-xl border border-red-200 overflow-hidden max-h-80 overflow-y-auto">
+                      <table className="w-full text-sm">
+                        <thead className="bg-red-100 sticky top-0">
+                          <tr>
+                            <th className="text-left py-3 px-4 w-12">
+                              <input
+                                type="checkbox"
+                                checked={selectedOrderIds.size === filteredOrdersForDeletion.length && filteredOrdersForDeletion.length > 0}
+                                onChange={toggleSelectAll}
+                                className="w-4 h-4 text-red-600 rounded focus:ring-red-500"
+                              />
+                            </th>
+                            <th className="text-left py-3 px-4 font-bold text-red-800">Order #</th>
+                            <th className="text-left py-3 px-4 font-bold text-red-800">Customer</th>
+                            <th className="text-left py-3 px-4 font-bold text-red-800">Project</th>
+                            <th className="text-left py-3 px-4 font-bold text-red-800">Status</th>
+                            <th className="text-left py-3 px-4 font-bold text-red-800">Created</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-red-100">
+                          {filteredOrdersForDeletion.length === 0 ? (
+                            <tr>
+                              <td colSpan={6} className="py-8 text-center text-slate-400">
+                                No orders found
+                              </td>
+                            </tr>
+                          ) : (
+                            filteredOrdersForDeletion.map(order => (
+                              <tr
+                                key={order.id}
+                                className={`hover:bg-red-50 cursor-pointer ${selectedOrderIds.has(order.id) ? 'bg-red-100' : ''}`}
+                                onClick={() => toggleOrderSelection(order.id)}
+                              >
+                                <td className="py-3 px-4" onClick={e => e.stopPropagation()}>
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedOrderIds.has(order.id)}
+                                    onChange={() => toggleOrderSelection(order.id)}
+                                    className="w-4 h-4 text-red-600 rounded focus:ring-red-500"
+                                  />
+                                </td>
+                                <td className="py-3 px-4 font-mono text-xs">{order.orderNumber}</td>
+                                <td className="py-3 px-4">{order.customer}</td>
+                                <td className="py-3 px-4 text-slate-600">{order.projectName}</td>
+                                <td className="py-3 px-4">
+                                  <span className="px-2 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-600">
+                                    {order.status}
+                                  </span>
+                                </td>
+                                <td className="py-3 px-4 text-slate-500 text-xs">
+                                  {new Date(order.createdAt).toLocaleDateString()}
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Selection Summary & Delete Button */}
+                    <div className="mt-4 flex items-center justify-between">
+                      <p className="text-sm text-red-700">
+                        {selectedOrderIds.size > 0 ? (
+                          <span className="font-bold">{selectedOrderIds.size} order(s) selected for deletion</span>
+                        ) : (
+                          <span className="text-slate-500">Select orders to delete</span>
+                        )}
+                      </p>
+                      <button
+                        onClick={() => setShowDeleteConfirm(true)}
+                        disabled={selectedOrderIds.size === 0}
+                        className="flex items-center gap-2 bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-xl font-bold hover:bg-red-700 transition-colors"
+                      >
+                        <Trash2 size={18} /> Delete Selected
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -2074,6 +2231,65 @@ GET    /api/export/lineitems    # Line items CSV`}</pre>
           )}
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-6 border-b border-slate-100 bg-red-50">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                  <AlertTriangle className="text-red-600" size={24} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-red-800">Confirm Deletion</h3>
+                  <p className="text-sm text-red-600">This action cannot be undone</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <p className="text-slate-700">
+                You are about to permanently delete <strong className="text-red-600">{selectedOrderIds.size} order(s)</strong> from the system.
+                This will remove all associated data including line items, history, and art files.
+              </p>
+
+              <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                <p className="text-sm text-red-700 mb-2">
+                  To confirm, type <strong>DELETE</strong> in the box below:
+                </p>
+                <input
+                  type="text"
+                  className="w-full border-2 border-red-300 p-3 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none font-mono text-center text-lg"
+                  placeholder="Type DELETE to confirm"
+                  value={deleteConfirmText}
+                  onChange={e => setDeleteConfirmText(e.target.value.toUpperCase())}
+                  autoFocus
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => {
+                    setShowDeleteConfirm(false);
+                    setDeleteConfirmText('');
+                  }}
+                  className="flex-1 bg-slate-100 text-slate-700 py-3 rounded-xl font-bold hover:bg-slate-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteOrders}
+                  disabled={deleteConfirmText !== 'DELETE'}
+                  className="flex-1 bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed text-white py-3 rounded-xl font-bold hover:bg-red-700 transition-colors flex items-center justify-center gap-2"
+                >
+                  <Trash2 size={18} /> Delete Forever
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
