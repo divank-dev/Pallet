@@ -31,12 +31,12 @@ interface SkuConfig {
   itemNumber: string;
   name: string;
   cost: number;
-  decorationType: ProductionMethod;
+  decorationType: ProductionMethod | '';
   decorationPlacements: number;
   decorationDescription: string;
   screenPrintColors: number;
-  stitchCountTier: '<8k' | '8k-12k' | '12k+';
-  dtfSize: 'Standard' | 'Large';
+  stitchCountTier: '<8k' | '8k-12k' | '12k+' | '';
+  dtfSize: 'Standard' | 'Large' | '';
   colorRows: ColorRow[];
 }
 
@@ -50,12 +50,12 @@ const createEmptySkuConfig = (): SkuConfig => ({
   itemNumber: '',
   name: '',
   cost: 0,
-  decorationType: 'ScreenPrint',
-  decorationPlacements: 1,
+  decorationType: '',
+  decorationPlacements: 0,
   decorationDescription: '',
-  screenPrintColors: 1,
-  stitchCountTier: '<8k',
-  dtfSize: 'Standard',
+  screenPrintColors: 0,
+  stitchCountTier: '',
+  dtfSize: '',
   colorRows: [createEmptyColorRow()]
 });
 
@@ -1687,7 +1687,25 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
                           order.closeoutChecklist.canvaArchived &&
                           order.closeoutChecklist.summaryUploaded;
 
-  const canAddSkuToOrder = skuConfig.itemNumber && skuConfig.name && skuPreview.totalQty > 0;
+  // Validation: check if at least one color is entered
+  const hasValidColor = skuConfig.colorRows.some(row => row.color.trim() !== '');
+
+  // Decoration-specific validation
+  const decorationValid = (() => {
+    if (!skuConfig.decorationType) return false;
+    if (skuConfig.decorationType === 'ScreenPrint' && skuConfig.screenPrintColors < 1) return false;
+    if (skuConfig.decorationType === 'DTF' && !skuConfig.dtfSize) return false;
+    if (skuConfig.decorationType === 'Embroidery' && !skuConfig.stitchCountTier) return false;
+    return true;
+  })();
+
+  const canAddSkuToOrder = skuConfig.itemNumber &&
+    skuConfig.name &&
+    skuConfig.decorationType &&
+    skuConfig.decorationPlacements > 0 &&
+    hasValidColor &&
+    decorationValid &&
+    skuPreview.totalQty > 0;
 
   // Get decoration type badge color
   const getDecorationBadgeClass = (type: ProductionMethod) => {
@@ -2807,13 +2825,15 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-slate-500 uppercase mb-2">
-                      Decoration Type
+                      Decoration Type *
                     </label>
                     <select
+                      required
                       className="w-full border border-slate-200 p-3 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none bg-white"
                       value={skuConfig.decorationType}
                       onChange={e => setSkuConfig({...skuConfig, decorationType: e.target.value as ProductionMethod})}
                     >
+                      <option value="">-- Select Type --</option>
                       {DECORATION_TYPES.map(type => (
                         <option key={type.value} value={type.value}>{type.label}</option>
                       ))}
@@ -2821,14 +2841,16 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-slate-500 uppercase mb-2">
-                      Placements
+                      Placements *
                     </label>
                     <input
+                      required
                       type="number"
                       min="1"
                       className="w-full border border-slate-200 p-3 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
-                      value={skuConfig.decorationPlacements}
-                      onChange={e => setSkuConfig({...skuConfig, decorationPlacements: parseInt(e.target.value) || 1})}
+                      placeholder="0"
+                      value={skuConfig.decorationPlacements || ''}
+                      onChange={e => setSkuConfig({...skuConfig, decorationPlacements: parseInt(e.target.value) || 0})}
                     />
                   </div>
                 </div>
@@ -2837,14 +2859,16 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-bold text-slate-500 uppercase mb-2">
-                        Number of Ink Colors
+                        Number of Ink Colors *
                       </label>
                       <input
+                        required
                         type="number"
                         min="1"
                         className="w-full border border-slate-200 p-3 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none bg-white"
-                        value={skuConfig.screenPrintColors}
-                        onChange={e => setSkuConfig({...skuConfig, screenPrintColors: parseInt(e.target.value) || 1})}
+                        placeholder="0"
+                        value={skuConfig.screenPrintColors || ''}
+                        onChange={e => setSkuConfig({...skuConfig, screenPrintColors: parseInt(e.target.value) || 0})}
                       />
                       <p className="text-xs text-slate-400 mt-1">+$1.00 per color | +$2.00 per placement | +$2.00 for 2XL+</p>
                     </div>
@@ -2854,7 +2878,7 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
                 {skuConfig.decorationType === 'DTF' && (
                   <div>
                     <label className="block text-xs font-bold text-slate-500 uppercase mb-2">
-                      Transfer Size
+                      Transfer Size *
                     </label>
                     <div className="grid grid-cols-2 gap-3">
                       <button
@@ -2886,7 +2910,7 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
                 {skuConfig.decorationType === 'Embroidery' && (
                   <div>
                     <label className="block text-xs font-bold text-slate-500 uppercase mb-2">
-                      Stitch Count
+                      Stitch Count *
                     </label>
                     <div className="grid grid-cols-3 gap-3">
                       {(['<8k', '8k-12k', '12k+'] as const).map(tier => (
@@ -2945,7 +2969,7 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="text-xs text-slate-500 uppercase">
-                        <th className="text-left py-2 px-2 w-32">Color</th>
+                        <th className="text-left py-2 px-2 w-32">Color *</th>
                         {SIZE_OPTIONS.map(size => (
                           <th key={size} className={`text-center py-2 px-1 min-w-[50px] ${
                             checkPlusSize(size) ? 'text-orange-600' : ''
@@ -2962,6 +2986,7 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
                         <tr key={row.id}>
                           <td className="py-2 px-2">
                             <input
+                              required
                               type="text"
                               className="w-full border border-slate-200 p-2 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                               placeholder="e.g. Navy"
@@ -3030,7 +3055,7 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
             >
               Add to Order & Add Another SKU
             </button>
-            <p className="text-xs text-slate-400 text-center">SKU, Name, and at least one quantity are required</p>
+            <p className="text-xs text-slate-400 text-center">Fields marked with * are required</p>
           </div>
         </div>
       )}
