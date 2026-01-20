@@ -528,6 +528,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ orders, onClose }) => {
                           <div>Production</div>
                           <div>Fulfillment</div>
                           <div>Invoice</div>
+                          <div>Closeout</div>
+                          <div>Closed</div>
                         </div>
                       </div>
 
@@ -844,16 +846,15 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ orders, onClose }) => {
                         <div className="bg-white rounded-xl border-2 border-green-400 p-4 shadow-sm">
                           <div className="flex items-center gap-2 mb-2">
                             <div className="w-6 h-6 rounded-full bg-green-500 text-white flex items-center justify-center text-xs font-bold">9</div>
-                            <span className="font-bold text-slate-800">Invoice & Closeout</span>
+                            <span className="font-bold text-slate-800">Invoice</span>
                           </div>
                           <ul className="text-xs text-slate-600 space-y-1 ml-8">
-                            <li>• Save files to folder</li>
-                            <li>• Archive Canva proof</li>
-                            <li>• Upload order summary</li>
-                            <li>• Send invoice</li>
+                            <li>• Create invoice</li>
+                            <li>• Send to customer</li>
+                            <li>• Track payment</li>
                           </ul>
                           <div className="mt-3 pt-2 border-t border-slate-100">
-                            <span className="text-[10px] font-bold text-green-600 uppercase">Gate: All closeout complete</span>
+                            <span className="text-[10px] font-bold text-green-600 uppercase">Gate: Invoice sent</span>
                           </div>
                         </div>
 
@@ -861,9 +862,29 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ orders, onClose }) => {
                           <div className="w-0.5 h-6 bg-green-300"></div>
                         </div>
 
+                        {/* Closeout */}
+                        <div className="bg-white rounded-xl border-2 border-slate-400 p-4 shadow-sm">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="w-6 h-6 rounded-full bg-slate-500 text-white flex items-center justify-center text-xs font-bold">10</div>
+                            <span className="font-bold text-slate-800">Closeout</span>
+                          </div>
+                          <ul className="text-xs text-slate-600 space-y-1 ml-8">
+                            <li>• Save files to folder</li>
+                            <li>• Archive Canva proof</li>
+                            <li>• Upload order summary</li>
+                          </ul>
+                          <div className="mt-3 pt-2 border-t border-slate-100">
+                            <span className="text-[10px] font-bold text-slate-600 uppercase">Gate: All files archived</span>
+                          </div>
+                        </div>
+
+                        <div className="flex justify-center">
+                          <div className="w-0.5 h-6 bg-slate-300"></div>
+                        </div>
+
                         {/* Archive */}
                         <div className="bg-slate-800 rounded-xl p-4 shadow-sm text-center">
-                          <span className="font-bold text-white text-sm">✓ ARCHIVED</span>
+                          <span className="font-bold text-white text-sm">✓ CLOSED</span>
                           <p className="text-slate-400 text-xs mt-1">Order complete</p>
                         </div>
                       </div>
@@ -897,10 +918,10 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ orders, onClose }) => {
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-green-500 text-white flex items-center justify-center text-xs font-bold">9</div>
+                      <div className="w-8 h-8 rounded-full bg-green-500 text-white flex items-center justify-center text-xs font-bold">9-10</div>
                       <div>
                         <p className="text-sm font-bold text-slate-800">Closeout</p>
-                        <p className="text-xs text-slate-500">Invoice → Archive</p>
+                        <p className="text-xs text-slate-500">Invoice → Closed</p>
                       </div>
                     </div>
                   </div>
@@ -1075,8 +1096,14 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ orders, onClose }) => {
                   </div>
 
                   <div className="bg-slate-50 rounded-lg p-4">
-                    <h5 className="font-bold text-slate-800 m-0">Stage 9: Invoice & Closeout</h5>
-                    <p className="text-sm text-slate-600 m-0 mt-1">Administrative closeout: Files saved, Canva archived, Summary uploaded, Invoice sent.</p>
+                    <h5 className="font-bold text-slate-800 m-0">Stage 9: Invoice</h5>
+                    <p className="text-sm text-slate-600 m-0 mt-1">Create and send invoice to customer. Track payment status and method.</p>
+                    <p className="text-xs text-slate-500 m-0 mt-2"><strong>Gate:</strong> Invoice created AND sent to customer</p>
+                  </div>
+
+                  <div className="bg-slate-50 rounded-lg p-4">
+                    <h5 className="font-bold text-slate-800 m-0">Stage 10: Closeout</h5>
+                    <p className="text-sm text-slate-600 m-0 mt-1">Project file archival: Files saved to customer folder, Canva proof archived, Order summary uploaded.</p>
                     <p className="text-xs text-slate-500 m-0 mt-2"><strong>Final Action:</strong> Close & Archive Order</p>
                   </div>
                 </div>

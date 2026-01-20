@@ -1,8 +1,9 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Search, ChevronDown, Bell, X } from 'lucide-react';
 import { Order, OrderStatus, ViewMode } from './types';
 import { DUMMY_ORDERS, ORDER_STAGES } from './constants';
+import { TEST_ORDERS } from './tests/testOrders';
 import Sidebar from './components/Sidebar';
 import WorkflowSidebar from './components/WorkflowSidebar';
 import OrderCard from './components/OrderCard';
@@ -11,15 +12,34 @@ import NewOrderModal from './components/NewOrderModal';
 import SettingsPage from './components/SettingsPage';
 import ReportsPage from './components/ReportsPage';
 import CustomerSearch from './components/CustomerSearch';
+import FulfillmentTrackingPage from './components/FulfillmentTrackingPage';
+import ProductionFloorPage from './components/ProductionFloorPage';
+import TestRunner from './tests/TestRunner';
 
 const App: React.FC = () => {
-  const [orders, setOrders] = useState<Order[]>(DUMMY_ORDERS);
+  const [orders, setOrders] = useState<Order[]>(TEST_ORDERS);
   const [currentStage, setCurrentStage] = useState<OrderStatus>('Lead');
   const [viewMode, setViewMode] = useState<ViewMode>('Sales');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [showNewOrder, setShowNewOrder] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<string>('');
-  const [activeView, setActiveView] = useState<'orders' | 'settings' | 'reports'>('orders');
+  const [activeView, setActiveView] = useState<'orders' | 'settings' | 'reports' | 'fulfillment' | 'productionFloor'>('orders');
+  const [showTestRunner, setShowTestRunner] = useState(false);
+
+  // Keyboard shortcut for test runner (Ctrl+Shift+T)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.shiftKey && e.key === 'T') {
+        e.preventDefault();
+        setShowTestRunner(prev => !prev);
+      }
+      if (e.key === 'Escape' && showTestRunner) {
+        setShowTestRunner(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showTestRunner]);
 
   // When a customer is selected, show all their orders across all stages
   // When no customer is selected, show orders in the current stage
@@ -38,11 +58,12 @@ const App: React.FC = () => {
     );
   }, [orders, currentStage, selectedCustomer]);
 
-  // Get customer's orders grouped by stage for display
+  // Get customer's orders grouped by stage for display (including Closed)
   const customerOrdersByStage = useMemo(() => {
     if (!selectedCustomer) return null;
     const grouped: Record<OrderStatus, Order[]> = {} as Record<OrderStatus, Order[]>;
-    ORDER_STAGES.forEach(stage => {
+    const allStages: OrderStatus[] = [...ORDER_STAGES, 'Closed'];
+    allStages.forEach(stage => {
       grouped[stage] = orders.filter(o =>
         !o.isArchived &&
         o.customer === selectedCustomer &&
@@ -77,18 +98,57 @@ const App: React.FC = () => {
         onSettingsClick={() => setActiveView('settings')}
         onOrdersClick={() => setActiveView('orders')}
         onReportsClick={() => setActiveView('reports')}
+        onFulfillmentClick={() => setActiveView('fulfillment')}
       />
       {activeView === 'settings' ? (
         <SettingsPage orders={orders} onClose={() => setActiveView('orders')} />
       ) : activeView === 'reports' ? (
         <ReportsPage orders={orders} onClose={() => setActiveView('orders')} />
+      ) : activeView === 'fulfillment' ? (
+        <FulfillmentTrackingPage
+          orders={orders}
+          onClose={() => setActiveView('orders')}
+          onSelectOrder={(order) => {
+            setSelectedOrder(order);
+            setActiveView('orders');
+            setCurrentStage(order.status);
+          }}
+        />
+      ) : activeView === 'productionFloor' ? (
+        <>
+          <WorkflowSidebar
+            currentStage={currentStage}
+            counts={countsByStage}
+            onStageSelect={(stage) => {
+              setCurrentStage(stage);
+              setActiveView('orders');
+            }}
+            onNewOrder={() => setShowNewOrder(true)}
+            onProductionFloorClick={() => setActiveView('productionFloor')}
+            isProductionFloorActive={true}
+          />
+          <ProductionFloorPage
+            orders={orders}
+            onClose={() => setActiveView('orders')}
+            onSelectOrder={(order) => {
+              setSelectedOrder(order);
+              setActiveView('orders');
+              setCurrentStage(order.status);
+            }}
+          />
+        </>
       ) : (
         <>
           <WorkflowSidebar
             currentStage={currentStage}
             counts={countsByStage}
-            onStageSelect={setCurrentStage}
+            onStageSelect={(stage) => {
+              setCurrentStage(stage);
+              setActiveView('orders');
+            }}
             onNewOrder={() => setShowNewOrder(true)}
+            onProductionFloorClick={() => setActiveView('productionFloor')}
+            isProductionFloorActive={activeView === 'productionFloor'}
           />
 
           <main className="flex-1 flex flex-col h-full overflow-hidden">
@@ -160,7 +220,7 @@ const App: React.FC = () => {
                 {selectedCustomer && customerOrdersByStage ? (
                   // Customer-specific view: show orders grouped by stage
                   <div className="space-y-8">
-                    {ORDER_STAGES.map(stage => {
+                    {([...ORDER_STAGES, 'Closed'] as OrderStatus[]).map(stage => {
                       const stageOrders = customerOrdersByStage[stage];
                       if (stageOrders.length === 0) return null;
 
@@ -250,6 +310,17 @@ const App: React.FC = () => {
             />
           )}
         </>
+      )}
+
+      {/* Test Runner (Ctrl+Shift+T to toggle) */}
+      {showTestRunner && (
+        <TestRunner
+          orders={orders}
+          onLoadTestOrders={(testOrders) => {
+            setOrders(testOrders);
+            setShowTestRunner(false);
+          }}
+        />
       )}
     </div>
   );

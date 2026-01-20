@@ -3,18 +3,19 @@ import React from 'react';
 import { LayoutDashboard, ShoppingBag, Box, Settings, Gem, BarChart3 } from 'lucide-react';
 
 interface SidebarProps {
-  activeView: 'orders' | 'settings' | 'reports';
+  activeView: 'orders' | 'settings' | 'reports' | 'fulfillment';
   onSettingsClick: () => void;
   onOrdersClick: () => void;
   onReportsClick: () => void;
+  onFulfillmentClick: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ activeView, onSettingsClick, onOrdersClick, onReportsClick }) => {
+const Sidebar: React.FC<SidebarProps> = ({ activeView, onSettingsClick, onOrdersClick, onReportsClick, onFulfillmentClick }) => {
   const items = [
     { icon: LayoutDashboard, label: 'Dashboard', active: false, onClick: () => {} },
     { icon: ShoppingBag, label: 'Orders', active: activeView === 'orders', onClick: onOrdersClick },
     { icon: BarChart3, label: 'Reports', active: activeView === 'reports', onClick: onReportsClick },
-    { icon: Box, label: 'Inventory', active: false, onClick: () => {} },
+    { icon: Box, label: 'Fulfillment', active: activeView === 'fulfillment', onClick: onFulfillmentClick },
     { icon: Settings, label: 'Settings', active: activeView === 'settings', onClick: onSettingsClick },
   ];
 

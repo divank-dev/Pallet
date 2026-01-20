@@ -154,7 +154,9 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ orders, onClose }) => {
       'Inventory Received': 'bg-amber-500',
       'Production': 'bg-yellow-500',
       'Fulfillment': 'bg-lime-500',
-      'Invoice': 'bg-green-500'
+      'Invoice': 'bg-green-500',
+      'Closeout': 'bg-teal-500',
+      'Closed': 'bg-slate-500'
     };
     return colors[stage] || 'bg-slate-500';
   };

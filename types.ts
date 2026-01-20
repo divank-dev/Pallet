@@ -1,4 +1,4 @@
-// 10-Stage Workflow Status (Lead + 9 Production Stages)
+// 11-Stage Workflow Status (Lead + 10 Production Stages) + Closed
 export type OrderStatus =
   | 'Lead'               // Stage 0 - Initial inquiry / sales funnel
   | 'Quote'              // Stage 1
@@ -9,7 +9,9 @@ export type OrderStatus =
   | 'Inventory Received' // Stage 6
   | 'Production'         // Stage 7
   | 'Fulfillment'        // Stage 8
-  | 'Invoice';           // Stage 9
+  | 'Invoice'            // Stage 9 - Send invoice to customer
+  | 'Closeout'           // Stage 10 - Project closeout checklist
+  | 'Closed';            // Stage 11 - Completed/Archived
 
 // Lead source tracking
 export type LeadSource = 'Website' | 'Referral' | 'Social Media' | 'Cold Call' | 'Trade Show' | 'Email Campaign' | 'Other';
@@ -37,7 +39,110 @@ export interface LeadInfo {
 
 export type ProductionMethod = 'ScreenPrint' | 'Embroidery' | 'DTF' | 'Other';
 
-export type ArtStatus = 'Pending' | 'Approved';
+export type ArtStatus = 'Not Started' | 'In Progress' | 'Sent to Customer' | 'Revision Requested' | 'Approved';
+
+// File type for art uploads
+export type ArtFileType = 'original' | 'proof' | 'markup' | 'reference' | 'final';
+export type ArtFileSource = 'client' | 'designer' | 'system';
+
+// Art file attachment
+export interface ArtFile {
+  id: string;
+  fileName: string;               // Original file name
+  fileType: ArtFileType;          // Type of file
+  fileUrl: string;                // URL or data URI
+  fileSize?: number;              // Size in bytes
+  mimeType?: string;              // MIME type (image/png, application/pdf, etc.)
+  thumbnailUrl?: string;          // Thumbnail for preview
+  uploadedAt: Date;
+  uploadedBy: ArtFileSource;      // Who uploaded it
+  notes?: string;                 // Notes about this file
+  isMarkup: boolean;              // Is this a marked-up version from client?
+  parentFileId?: string;          // Reference to original file if this is a markup
+}
+
+// Art revision history entry
+export interface ArtRevision {
+  id: string;
+  timestamp: Date;
+  action: 'file_uploaded' | 'proof_created' | 'proof_sent' | 'feedback_received' | 'revision_requested' | 'approved' | 'note_added' | 'placement_added' | 'placement_removed';
+  description: string;
+  performedBy?: string;           // User or "Client" or "System"
+  relatedFileId?: string;         // Related file if applicable
+  relatedProofId?: string;        // Related proof if applicable
+  relatedPlacementId?: string;    // Related placement if applicable
+  previousValue?: string;         // For tracking changes
+  newValue?: string;              // For tracking changes
+  notes?: string;
+}
+
+// Art proof version tracking
+export interface ArtProof {
+  id: string;
+  version: number;
+  proofName: string;              // e.g., "Front Logo v2"
+  proofUrl?: string;              // Link to proof file (Canva, Google Drive, etc.)
+  proofNotes?: string;            // Designer notes about this version
+  createdAt: Date;
+  sentToCustomerAt?: Date;
+  customerFeedback?: string;      // Customer's response/feedback
+  feedbackReceivedAt?: Date;
+  status: 'Draft' | 'Sent' | 'Approved' | 'Revision Needed';
+  // File attachments for this proof
+  files: ArtFile[];               // Proof files (designer uploads)
+  markupFiles: ArtFile[];         // Client markup files (client feedback with annotations)
+}
+
+// Art placement/location configuration
+export interface ArtPlacement {
+  id: string;
+  location: string;               // e.g., "Front Left Chest", "Full Back", "Left Sleeve"
+  width?: string;                 // e.g., "3.5 inches"
+  height?: string;                // e.g., "4 inches"
+  colorCount?: number;            // For screen print
+  description?: string;           // Special instructions
+  proofs: ArtProof[];             // Version history for this placement
+}
+
+// Complete art confirmation workflow data
+export interface ArtConfirmation {
+  // Overall status
+  overallStatus: ArtStatus;
+
+  // Art placements with their proofs
+  placements: ArtPlacement[];
+
+  // Original artwork files from client
+  clientFiles: ArtFile[];         // Files uploaded by/from client
+
+  // Reference files (inspiration, brand guides, etc.)
+  referenceFiles: ArtFile[];
+
+  // Revision history - complete audit trail
+  revisionHistory: ArtRevision[];
+
+  // Communication log
+  customerContactMethod?: 'Email' | 'Phone' | 'Text' | 'In Person';
+  lastContactedAt?: Date;
+  nextFollowUpAt?: Date;
+
+  // Internal notes
+  designerNotes?: string;
+  internalNotes?: string;
+
+  // Customer info for this order
+  customerApprovalName?: string;  // Who approved the art
+  customerApprovalDate?: Date;
+  customerApprovalMethod?: 'Email' | 'Signed Proof' | 'Verbal' | 'Digital Signature';
+
+  // Legacy URL fields (for backwards compatibility)
+  originalArtworkUrl?: string;    // Customer's original artwork/logo
+  mockupUrl?: string;             // Product mockup with art applied
+
+  // Timestamps
+  startedAt?: Date;
+  completedAt?: Date;
+}
 
 export type FulfillmentMethod = 'Shipped' | 'PickedUp' | null;
 
@@ -88,12 +193,24 @@ export interface PrepStatus {
   screensBurned: boolean | null;       // Required if ScreenPrint present
 }
 
-// Stage 9: Closeout checklist
+// Stage 9: Invoice status
+export interface InvoiceStatus {
+  invoiceNumber?: string;
+  invoiceAmount?: number;
+  invoiceCreated: boolean;
+  invoiceSent: boolean;
+  invoiceSentAt?: Date;
+  paymentReceived: boolean;
+  paymentReceivedAt?: Date;
+  paymentMethod?: 'Cash' | 'Check' | 'Credit Card' | 'ACH' | 'Other';
+  paymentNotes?: string;
+}
+
+// Stage 10: Closeout checklist
 export interface CloseoutChecklist {
   filesSaved: boolean;
   canvaArchived: boolean;
   summaryUploaded: boolean;
-  invoiceSent: boolean;
 }
 
 // Stage 8: Fulfillment status
@@ -113,6 +230,31 @@ export interface StatusChangeLog {
   previousValue: any;
   newValue: any;
   notes?: string;
+}
+
+// Production Floor - Hourly Productivity Entry
+export interface ProductivityEntry {
+  id: string;
+  date: string;                    // YYYY-MM-DD format
+  hour: number;                    // 0-23 (hour of the day)
+  operatorName: string;
+  orderNumber: string;
+  orderId: string;
+  decorationType: ProductionMethod;
+  itemsDecorated: number;
+  itemsPacked: number;
+  notes?: string;
+  createdAt: Date;
+}
+
+// Daily Productivity Summary
+export interface DailyProductivitySummary {
+  date: string;
+  totalItemsDecorated: number;
+  totalItemsPacked: number;
+  entriesByHour: { hour: number; decorated: number; packed: number }[];
+  entriesByOperator: { operator: string; decorated: number; packed: number }[];
+  entriesByMethod: { method: ProductionMethod; decorated: number; packed: number }[];
 }
 
 export interface Order {
@@ -143,9 +285,13 @@ export interface Order {
   // Lead-specific data (populated when status is 'Lead')
   leadInfo?: LeadInfo;
 
+  // Art confirmation workflow data
+  artConfirmation: ArtConfirmation;
+
   // Stage-specific data
   prepStatus: PrepStatus;
   fulfillment: FulfillmentStatus;
+  invoiceStatus: InvoiceStatus;
   closeoutChecklist: CloseoutChecklist;
 
   // Audit trail
@@ -155,6 +301,11 @@ export interface Order {
   version: number;
   archivedAt?: Date;
   isArchived: boolean;
+
+  // Closed order tracking
+  closedAt?: Date;
+  closedReason?: string;           // Reason for closing (Completed, Cancelled, etc.)
+  reopenedFrom?: OrderStatus;      // Track what status to return to if reopened
 }
 
 export type ViewMode = 'Sales' | 'Production';
@@ -170,21 +321,25 @@ export const STAGE_NUMBER: Record<OrderStatus, number> = {
   'Inventory Received': 6,
   'Production': 7,
   'Fulfillment': 8,
-  'Invoice': 9
+  'Invoice': 9,
+  'Closeout': 10,
+  'Closed': 11
 };
 
 // Allowed transitions
 export const ALLOWED_TRANSITIONS: Record<number, number[]> = {
-  0: [1],    // Lead → Quote only
-  1: [2],    // Quote → Approval only
-  2: [3],    // Approval → Art Confirmation only
-  3: [4],    // Art Confirmation → Inventory Order only
-  4: [5],    // Inventory Order → Production Prep only
-  5: [6],    // Production Prep → Inventory Received only
-  6: [7],    // Inventory Received → Production only
-  7: [8],    // Production → Fulfillment only
-  8: [9],    // Fulfillment → Invoice only
-  9: []      // Terminal state
+  0: [1],      // Lead → Quote only
+  1: [2],      // Quote → Approval only
+  2: [3],      // Approval → Art Confirmation only
+  3: [4],      // Art Confirmation → Inventory Order only
+  4: [5],      // Inventory Order → Production Prep only
+  5: [6],      // Production Prep → Inventory Received only
+  6: [7],      // Inventory Received → Production only
+  7: [8],      // Production → Fulfillment only
+  8: [9],      // Fulfillment → Invoice only
+  9: [10],     // Invoice → Closeout
+  10: [11],    // Closeout → Closed
+  11: []       // Closed - can be reopened to any stage
 };
 
 // ============================================
@@ -272,17 +427,23 @@ export const SCHEMA_DEFINITION = {
         notes: { type: 'string', required: false, description: 'Order notes' },
         lineItems: { type: 'LineItem[]', required: true, description: 'Array of line items' },
         leadInfo: { type: 'LeadInfo', required: false, description: 'Lead-specific data (when status is Lead)' },
+        artConfirmation: { type: 'ArtConfirmation', required: true, description: 'Art confirmation workflow data' },
         prepStatus: { type: 'PrepStatus', required: true, description: 'Production prep checklist status' },
         fulfillment: { type: 'FulfillmentStatus', required: true, description: 'Fulfillment/shipping status' },
-        closeoutChecklist: { type: 'CloseoutChecklist', required: true, description: 'Invoice stage checklist' },
+        invoiceStatus: { type: 'InvoiceStatus', required: true, description: 'Invoice stage status' },
+        closeoutChecklist: { type: 'CloseoutChecklist', required: true, description: 'Project closeout checklist' },
         history: { type: 'StatusChangeLog[]', required: true, description: 'Audit trail of changes' },
         version: { type: 'number', required: true, description: 'Optimistic concurrency version' },
         isArchived: { type: 'boolean', required: true, description: 'Soft delete flag' },
-        archivedAt: { type: 'Date', required: false, description: 'Archive timestamp' }
+        archivedAt: { type: 'Date', required: false, description: 'Archive timestamp' },
+        closedAt: { type: 'Date', required: false, description: 'Order closure timestamp' },
+        closedReason: { type: 'string', required: false, description: 'Reason for closing (Completed, Cancelled, etc.)' },
+        reopenedFrom: { type: 'OrderStatus', required: false, description: 'Previous status before closing (for reopening)' }
       },
       relationships: {
         lineItems: { type: 'one-to-many', target: 'LineItem', description: 'Order contains multiple line items' },
         leadInfo: { type: 'one-to-one', target: 'LeadInfo', description: 'Optional lead information' },
+        artConfirmation: { type: 'one-to-one', target: 'ArtConfirmation', description: 'Art confirmation workflow' },
         history: { type: 'one-to-many', target: 'StatusChangeLog', description: 'Audit trail entries' }
       }
     },
@@ -351,13 +512,26 @@ export const SCHEMA_DEFINITION = {
         fulfilledAt: { type: 'Date', required: false, description: 'Fulfillment timestamp' }
       }
     },
-    CloseoutChecklist: {
-      description: 'Invoice stage closeout checklist',
+    InvoiceStatus: {
+      description: 'Invoice stage tracking',
       fields: {
-        filesSaved: { type: 'boolean', required: true, description: 'Project files saved' },
+        invoiceNumber: { type: 'string', required: false, description: 'Invoice number/ID' },
+        invoiceAmount: { type: 'number', required: false, description: 'Invoice total amount' },
+        invoiceCreated: { type: 'boolean', required: true, description: 'Invoice has been created' },
+        invoiceSent: { type: 'boolean', required: true, description: 'Invoice sent to customer' },
+        invoiceSentAt: { type: 'Date', required: false, description: 'When invoice was sent' },
+        paymentReceived: { type: 'boolean', required: true, description: 'Payment has been received' },
+        paymentReceivedAt: { type: 'Date', required: false, description: 'When payment was received' },
+        paymentMethod: { type: 'string', required: false, description: 'Payment method used' },
+        paymentNotes: { type: 'string', required: false, description: 'Notes about payment' }
+      }
+    },
+    CloseoutChecklist: {
+      description: 'Project closeout checklist',
+      fields: {
+        filesSaved: { type: 'boolean', required: true, description: 'Project files saved to customer folder' },
         canvaArchived: { type: 'boolean', required: true, description: 'Canva proof archived' },
-        summaryUploaded: { type: 'boolean', required: true, description: 'Order summary uploaded' },
-        invoiceSent: { type: 'boolean', required: true, description: 'Invoice sent to customer' }
+        summaryUploaded: { type: 'boolean', required: true, description: 'Order summary uploaded' }
       }
     },
     StatusChangeLog: {
@@ -370,12 +544,60 @@ export const SCHEMA_DEFINITION = {
         newValue: { type: 'any', required: true, description: 'Value after change' },
         notes: { type: 'string', required: false, description: 'Change notes' }
       }
+    },
+    ArtConfirmation: {
+      description: 'Art confirmation workflow data',
+      fields: {
+        overallStatus: { type: 'ArtStatus', required: true, description: 'Overall art confirmation status' },
+        placements: { type: 'ArtPlacement[]', required: true, description: 'Art placement locations with proofs' },
+        customerContactMethod: { type: 'string', required: false, description: 'How customer was contacted' },
+        lastContactedAt: { type: 'Date', required: false, description: 'Last customer contact timestamp' },
+        nextFollowUpAt: { type: 'Date', required: false, description: 'Next follow-up date' },
+        designerNotes: { type: 'string', required: false, description: 'Internal designer notes' },
+        internalNotes: { type: 'string', required: false, description: 'General internal notes' },
+        customerApprovalName: { type: 'string', required: false, description: 'Name of approver' },
+        customerApprovalDate: { type: 'Date', required: false, description: 'Approval timestamp' },
+        customerApprovalMethod: { type: 'string', required: false, description: 'How approval was received' },
+        originalArtworkUrl: { type: 'string', required: false, description: 'URL to original artwork' },
+        mockupUrl: { type: 'string', required: false, description: 'URL to product mockup' },
+        startedAt: { type: 'Date', required: false, description: 'When art work started' },
+        completedAt: { type: 'Date', required: false, description: 'When art was approved' }
+      }
+    },
+    ArtPlacement: {
+      description: 'Individual art placement location',
+      fields: {
+        id: { type: 'string', required: true, description: 'Unique identifier' },
+        location: { type: 'string', required: true, description: 'Placement location (e.g., Front Left Chest)' },
+        width: { type: 'string', required: false, description: 'Art width dimension' },
+        height: { type: 'string', required: false, description: 'Art height dimension' },
+        colorCount: { type: 'number', required: false, description: 'Number of colors/threads' },
+        description: { type: 'string', required: false, description: 'Special instructions' },
+        proofs: { type: 'ArtProof[]', required: true, description: 'Proof versions for this placement' }
+      }
+    },
+    ArtProof: {
+      description: 'Individual proof version',
+      fields: {
+        id: { type: 'string', required: true, description: 'Unique identifier' },
+        version: { type: 'number', required: true, description: 'Version number' },
+        proofName: { type: 'string', required: true, description: 'Proof name/title' },
+        proofUrl: { type: 'string', required: false, description: 'URL to proof file' },
+        proofNotes: { type: 'string', required: false, description: 'Designer notes' },
+        createdAt: { type: 'Date', required: true, description: 'Creation timestamp' },
+        sentToCustomerAt: { type: 'Date', required: false, description: 'When sent to customer' },
+        customerFeedback: { type: 'string', required: false, description: 'Customer feedback' },
+        feedbackReceivedAt: { type: 'Date', required: false, description: 'When feedback received' },
+        status: { type: 'ProofStatus', required: true, description: 'Proof status' }
+      }
     }
   },
   enums: {
-    OrderStatus: ['Lead', 'Quote', 'Approval', 'Art Confirmation', 'Inventory Order', 'Production Prep', 'Inventory Received', 'Production', 'Fulfillment', 'Invoice'],
+    OrderStatus: ['Lead', 'Quote', 'Approval', 'Art Confirmation', 'Inventory Order', 'Production Prep', 'Inventory Received', 'Production', 'Fulfillment', 'Invoice', 'Closeout', 'Closed'],
     ProductionMethod: ['ScreenPrint', 'Embroidery', 'DTF', 'Other'],
-    ArtStatus: ['Pending', 'Approved'],
+    ArtStatus: ['Not Started', 'In Progress', 'Sent to Customer', 'Revision Requested', 'Approved'],
+    ProofStatus: ['Draft', 'Sent', 'Approved', 'Revision Needed'],
+    CustomerApprovalMethod: ['Email', 'Signed Proof', 'Verbal', 'Digital Signature'],
     FulfillmentMethod: ['Shipped', 'PickedUp', null],
     LeadSource: ['Website', 'Referral', 'Social Media', 'Cold Call', 'Trade Show', 'Email Campaign', 'Other'],
     LeadTemperature: ['Hot', 'Warm', 'Cold'],
@@ -393,7 +615,9 @@ export const SCHEMA_DEFINITION = {
       { number: 6, name: 'Inventory Received', description: 'Receiving blank goods', gateCondition: 'All line items marked as received' },
       { number: 7, name: 'Production', description: 'Decoration and packing', gateCondition: 'All items decorated and packed' },
       { number: 8, name: 'Fulfillment', description: 'Shipping or pickup', gateCondition: 'Shipping label printed or customer picked up' },
-      { number: 9, name: 'Invoice', description: 'Final closeout', gateCondition: 'All closeout checklist items complete' }
+      { number: 9, name: 'Invoice', description: 'Send invoice to customer', gateCondition: 'Invoice created and sent' },
+      { number: 10, name: 'Closeout', description: 'Project file archival and closeout', gateCondition: 'All closeout checklist items complete' },
+      { number: 11, name: 'Closed', description: 'Order completed and archived', gateCondition: 'Order closed from Closeout stage' }
     ]
   }
 };

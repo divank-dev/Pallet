@@ -1,8 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { X, Plus, Trash2, Check, AlertCircle, ShoppingCart, FileText, Package, Palette, Layers, Truck, Archive, ClipboardCheck, Printer, Settings, Users, Calendar, DollarSign, Phone, Mail, ThermometerSun, Target } from 'lucide-react';
-import { Order, ViewMode, LineItem, ProductionMethod, STAGE_NUMBER, LeadSource, LeadTemperature, LeadInfo } from '../types';
+import { X, Plus, Trash2, Check, AlertCircle, ShoppingCart, FileText, Package, Palette, Layers, Truck, Archive, ClipboardCheck, Printer, Settings, Users, Calendar, DollarSign, Phone, Mail, ThermometerSun, Target, Send, MessageSquare, Image, Link, Clock, Edit3, Eye, RefreshCw, CheckCircle2, XCircle, Upload, Download, File, FileImage, FilePlus, History, ChevronDown, ChevronUp, Paperclip } from 'lucide-react';
+import { Order, OrderStatus, ViewMode, LineItem, ProductionMethod, STAGE_NUMBER, LeadSource, LeadTemperature, LeadInfo, ArtPlacement, ArtProof, ArtConfirmation, ArtFile, ArtRevision, ArtFileType } from '../types';
 import { calculatePrice } from '../utils/pricing';
-import { DEFAULT_LEAD_INFO } from '../constants';
+import { DEFAULT_LEAD_INFO, DEFAULT_ART_CONFIRMATION } from '../constants';
 
 interface OrderSlideOverProps {
   order: Order;
@@ -57,6 +57,1406 @@ const createEmptySkuConfig = (): SkuConfig => ({
   dtfSize: 'Standard',
   colorRows: [createEmptyColorRow()]
 });
+
+// Art Placement Locations
+const PLACEMENT_LOCATIONS = [
+  'Front Left Chest',
+  'Front Center',
+  'Full Front',
+  'Back Neck',
+  'Back Center',
+  'Full Back',
+  'Left Sleeve',
+  'Right Sleeve',
+  'Left Hip',
+  'Right Hip',
+  'Other'
+];
+
+// Art Confirmation Panel Component
+interface ArtConfirmationPanelProps {
+  order: Order;
+  onUpdate: (order: Order) => void;
+  moveNext: (status: Order['status'], updates?: Partial<Order>) => void;
+}
+
+const ArtConfirmationPanel: React.FC<ArtConfirmationPanelProps> = ({ order, onUpdate, moveNext }) => {
+  const [showAddPlacement, setShowAddPlacement] = useState(false);
+  const [showAddProof, setShowAddProof] = useState<string | null>(null);
+  const [editingPlacement, setEditingPlacement] = useState<string | null>(null);
+  const [feedbackInput, setFeedbackInput] = useState<{ proofId: string; placementId: string; feedback: string } | null>(null);
+  const [showRevisionHistory, setShowRevisionHistory] = useState(false);
+  const [showClientFileUpload, setShowClientFileUpload] = useState(false);
+  const [showMarkupUpload, setShowMarkupUpload] = useState<{ placementId: string; proofId: string } | null>(null);
+
+  // New placement form state
+  const [newPlacement, setNewPlacement] = useState({
+    location: '',
+    customLocation: '',
+    width: '',
+    height: '',
+    colorCount: 1,
+    description: ''
+  });
+
+  // New proof form state
+  const [newProof, setNewProof] = useState({
+    proofName: '',
+    proofUrl: '',
+    proofNotes: ''
+  });
+
+  // New file upload form state
+  const [newFile, setNewFile] = useState({
+    fileName: '',
+    fileUrl: '',
+    fileType: 'original' as ArtFileType,
+    notes: '',
+    isMarkup: false
+  });
+
+  const artConfirmation = order.artConfirmation || { ...DEFAULT_ART_CONFIRMATION };
+  const clientFiles = artConfirmation.clientFiles || [];
+  const revisionHistory = artConfirmation.revisionHistory || [];
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'Approved': return 'bg-green-100 text-green-700 border-green-200';
+      case 'Sent to Customer': return 'bg-blue-100 text-blue-700 border-blue-200';
+      case 'Revision Requested': return 'bg-orange-100 text-orange-700 border-orange-200';
+      case 'In Progress': return 'bg-purple-100 text-purple-700 border-purple-200';
+      default: return 'bg-slate-100 text-slate-600 border-slate-200';
+    }
+  };
+
+  const getProofStatusColor = (status: string) => {
+    switch (status) {
+      case 'Approved': return 'bg-green-500';
+      case 'Sent': return 'bg-blue-500';
+      case 'Revision Needed': return 'bg-orange-500';
+      default: return 'bg-slate-400';
+    }
+  };
+
+  // Add new placement
+  const handleAddPlacement = () => {
+    const location = newPlacement.location === 'Other' ? newPlacement.customLocation : newPlacement.location;
+    if (!location) return;
+
+    const placement: ArtPlacement = {
+      id: Math.random().toString(36).substr(2, 9),
+      location,
+      width: newPlacement.width || undefined,
+      height: newPlacement.height || undefined,
+      colorCount: newPlacement.colorCount,
+      description: newPlacement.description || undefined,
+      proofs: []
+    };
+
+    const revision = addRevisionEntry(
+      'placement_added',
+      `Added art placement: ${location}${newPlacement.width ? ` (${newPlacement.width}x${newPlacement.height})` : ''}`,
+      { relatedPlacementId: placement.id }
+    );
+
+    const updatedArtConfirmation: ArtConfirmation = {
+      ...artConfirmation,
+      overallStatus: artConfirmation.overallStatus === 'Not Started' ? 'In Progress' : artConfirmation.overallStatus,
+      placements: [...artConfirmation.placements, placement],
+      revisionHistory: [...revisionHistory, revision],
+      startedAt: artConfirmation.startedAt || new Date()
+    };
+
+    onUpdate({
+      ...order,
+      artConfirmation: updatedArtConfirmation,
+      artStatus: order.artStatus === 'Not Started' ? 'In Progress' : order.artStatus
+    });
+
+    setNewPlacement({ location: '', customLocation: '', width: '', height: '', colorCount: 1, description: '' });
+    setShowAddPlacement(false);
+  };
+
+  // Helper to add revision history entry
+  const addRevisionEntry = (
+    action: ArtRevision['action'],
+    description: string,
+    extras?: Partial<ArtRevision>
+  ): ArtRevision => {
+    return {
+      id: Math.random().toString(36).substr(2, 9),
+      timestamp: new Date(),
+      action,
+      description,
+      performedBy: 'Designer',
+      ...extras
+    };
+  };
+
+  // Handle client file upload
+  const handleUploadClientFile = () => {
+    if (!newFile.fileName || !newFile.fileUrl) return;
+
+    const file: ArtFile = {
+      id: Math.random().toString(36).substr(2, 9),
+      fileName: newFile.fileName,
+      fileType: newFile.fileType,
+      fileUrl: newFile.fileUrl,
+      uploadedAt: new Date(),
+      uploadedBy: newFile.isMarkup ? 'client' : 'client',
+      notes: newFile.notes || undefined,
+      isMarkup: newFile.isMarkup
+    };
+
+    const revision = addRevisionEntry(
+      'file_uploaded',
+      `${newFile.isMarkup ? 'Client' : 'Client'} uploaded ${newFile.fileType} file: ${newFile.fileName}`,
+      { performedBy: 'Client', relatedFileId: file.id }
+    );
+
+    onUpdate({
+      ...order,
+      artConfirmation: {
+        ...artConfirmation,
+        clientFiles: [...clientFiles, file],
+        revisionHistory: [...revisionHistory, revision],
+        overallStatus: artConfirmation.overallStatus === 'Not Started' ? 'In Progress' : artConfirmation.overallStatus,
+        startedAt: artConfirmation.startedAt || new Date()
+      },
+      artStatus: order.artStatus === 'Not Started' ? 'In Progress' : order.artStatus
+    });
+
+    setNewFile({ fileName: '', fileUrl: '', fileType: 'original', notes: '', isMarkup: false });
+    setShowClientFileUpload(false);
+  };
+
+  // Handle markup file upload for a proof
+  const handleUploadMarkupFile = (placementId: string, proofId: string) => {
+    if (!newFile.fileName || !newFile.fileUrl) return;
+
+    const file: ArtFile = {
+      id: Math.random().toString(36).substr(2, 9),
+      fileName: newFile.fileName,
+      fileType: 'markup',
+      fileUrl: newFile.fileUrl,
+      uploadedAt: new Date(),
+      uploadedBy: 'client',
+      notes: newFile.notes || undefined,
+      isMarkup: true,
+      parentFileId: proofId
+    };
+
+    const updatedPlacements = artConfirmation.placements.map(p => {
+      if (p.id === placementId) {
+        return {
+          ...p,
+          proofs: p.proofs.map(pr =>
+            pr.id === proofId
+              ? { ...pr, markupFiles: [...(pr.markupFiles || []), file] }
+              : pr
+          )
+        };
+      }
+      return p;
+    });
+
+    const revision = addRevisionEntry(
+      'feedback_received',
+      `Client uploaded marked-up proof: ${newFile.fileName}`,
+      { performedBy: 'Client', relatedFileId: file.id, relatedProofId: proofId, relatedPlacementId: placementId }
+    );
+
+    onUpdate({
+      ...order,
+      artConfirmation: {
+        ...artConfirmation,
+        placements: updatedPlacements,
+        revisionHistory: [...revisionHistory, revision],
+        overallStatus: 'Revision Requested'
+      },
+      artStatus: 'Revision Requested'
+    });
+
+    setNewFile({ fileName: '', fileUrl: '', fileType: 'original', notes: '', isMarkup: false });
+    setShowMarkupUpload(null);
+  };
+
+  // Delete a client file
+  const handleDeleteClientFile = (fileId: string) => {
+    const file = clientFiles.find(f => f.id === fileId);
+    const revision = addRevisionEntry(
+      'file_uploaded',
+      `Deleted file: ${file?.fileName || 'Unknown'}`,
+      { performedBy: 'Designer', relatedFileId: fileId }
+    );
+
+    onUpdate({
+      ...order,
+      artConfirmation: {
+        ...artConfirmation,
+        clientFiles: clientFiles.filter(f => f.id !== fileId),
+        revisionHistory: [...revisionHistory, revision]
+      }
+    });
+  };
+
+  // Add new proof to a placement
+  const handleAddProof = (placementId: string) => {
+    if (!newProof.proofName) return;
+
+    const placement = artConfirmation.placements.find(p => p.id === placementId);
+    if (!placement) return;
+
+    const proof: ArtProof = {
+      id: Math.random().toString(36).substr(2, 9),
+      version: placement.proofs.length + 1,
+      proofName: newProof.proofName,
+      proofUrl: newProof.proofUrl || undefined,
+      proofNotes: newProof.proofNotes || undefined,
+      createdAt: new Date(),
+      status: 'Draft',
+      files: [],
+      markupFiles: []
+    };
+
+    const revision = addRevisionEntry(
+      'proof_created',
+      `Created proof v${proof.version}: ${newProof.proofName} for ${placement.location}`,
+      { relatedProofId: proof.id, relatedPlacementId: placementId }
+    );
+
+    const updatedPlacements = artConfirmation.placements.map(p =>
+      p.id === placementId ? { ...p, proofs: [...p.proofs, proof] } : p
+    );
+
+    onUpdate({
+      ...order,
+      artConfirmation: {
+        ...artConfirmation,
+        placements: updatedPlacements,
+        revisionHistory: [...revisionHistory, revision]
+      }
+    });
+
+    setNewProof({ proofName: '', proofUrl: '', proofNotes: '' });
+    setShowAddProof(null);
+  };
+
+  // Send proof to customer
+  const handleSendProof = (placementId: string, proofId: string) => {
+    const placement = artConfirmation.placements.find(p => p.id === placementId);
+    const proof = placement?.proofs.find(pr => pr.id === proofId);
+
+    const updatedPlacements = artConfirmation.placements.map(p => {
+      if (p.id === placementId) {
+        return {
+          ...p,
+          proofs: p.proofs.map(pr =>
+            pr.id === proofId ? { ...pr, status: 'Sent' as const, sentToCustomerAt: new Date() } : pr
+          )
+        };
+      }
+      return p;
+    });
+
+    const revision = addRevisionEntry(
+      'proof_sent',
+      `Sent proof v${proof?.version || '?'}: ${proof?.proofName || 'Unknown'} to customer`,
+      { relatedProofId: proofId, relatedPlacementId: placementId }
+    );
+
+    onUpdate({
+      ...order,
+      artConfirmation: {
+        ...artConfirmation,
+        placements: updatedPlacements,
+        revisionHistory: [...revisionHistory, revision],
+        overallStatus: 'Sent to Customer',
+        lastContactedAt: new Date()
+      },
+      artStatus: 'Sent to Customer'
+    });
+  };
+
+  // Record customer feedback
+  const handleRecordFeedback = () => {
+    if (!feedbackInput) return;
+
+    const placement = artConfirmation.placements.find(p => p.id === feedbackInput.placementId);
+    const proof = placement?.proofs.find(pr => pr.id === feedbackInput.proofId);
+
+    const updatedPlacements = artConfirmation.placements.map(p => {
+      if (p.id === feedbackInput.placementId) {
+        return {
+          ...p,
+          proofs: p.proofs.map(pr =>
+            pr.id === feedbackInput.proofId
+              ? { ...pr, customerFeedback: feedbackInput.feedback, feedbackReceivedAt: new Date(), status: 'Revision Needed' as const }
+              : pr
+          )
+        };
+      }
+      return p;
+    });
+
+    const revision = addRevisionEntry(
+      'feedback_received',
+      `Customer feedback received for ${proof?.proofName || 'proof'}: revision requested`,
+      { relatedProofId: feedbackInput.proofId, relatedPlacementId: feedbackInput.placementId, notes: feedbackInput.feedback, performedBy: 'Customer' }
+    );
+
+    onUpdate({
+      ...order,
+      artConfirmation: {
+        ...artConfirmation,
+        placements: updatedPlacements,
+        revisionHistory: [...revisionHistory, revision],
+        overallStatus: 'Revision Requested'
+      },
+      artStatus: 'Revision Requested'
+    });
+
+    setFeedbackInput(null);
+  };
+
+  // Approve a proof
+  const handleApproveProof = (placementId: string, proofId: string) => {
+    const placement = artConfirmation.placements.find(p => p.id === placementId);
+    const proof = placement?.proofs.find(pr => pr.id === proofId);
+
+    const updatedPlacements = artConfirmation.placements.map(p => {
+      if (p.id === placementId) {
+        return {
+          ...p,
+          proofs: p.proofs.map(pr =>
+            pr.id === proofId ? { ...pr, status: 'Approved' as const } : pr
+          )
+        };
+      }
+      return p;
+    });
+
+    // Check if all placements have at least one approved proof
+    const allApproved = updatedPlacements.every(p => p.proofs.some(pr => pr.status === 'Approved'));
+
+    const revision = addRevisionEntry(
+      'approved',
+      allApproved
+        ? `All art approved! Final approval on ${proof?.proofName || 'proof'} for ${placement?.location || 'placement'}`
+        : `Approved proof v${proof?.version || '?'}: ${proof?.proofName || 'Unknown'} for ${placement?.location || 'placement'}`,
+      { relatedProofId: proofId, relatedPlacementId: placementId, performedBy: 'Customer' }
+    );
+
+    onUpdate({
+      ...order,
+      artConfirmation: {
+        ...artConfirmation,
+        placements: updatedPlacements,
+        revisionHistory: [...revisionHistory, revision],
+        overallStatus: allApproved ? 'Approved' : artConfirmation.overallStatus,
+        completedAt: allApproved ? new Date() : undefined
+      },
+      artStatus: allApproved ? 'Approved' : order.artStatus
+    });
+  };
+
+  // Delete placement
+  const handleDeletePlacement = (placementId: string) => {
+    const placement = artConfirmation.placements.find(p => p.id === placementId);
+    const updatedPlacements = artConfirmation.placements.filter(p => p.id !== placementId);
+
+    const revision = addRevisionEntry(
+      'placement_removed',
+      `Removed art placement: ${placement?.location || 'Unknown'}`,
+      { relatedPlacementId: placementId }
+    );
+
+    onUpdate({
+      ...order,
+      artConfirmation: {
+        ...artConfirmation,
+        placements: updatedPlacements,
+        revisionHistory: [...revisionHistory, revision]
+      }
+    });
+  };
+
+  // Update internal notes
+  const handleUpdateNotes = (field: 'designerNotes' | 'internalNotes', value: string) => {
+    onUpdate({
+      ...order,
+      artConfirmation: { ...artConfirmation, [field]: value }
+    });
+  };
+
+  // Update original artwork URL
+  const handleUpdateOriginalArtwork = (url: string) => {
+    onUpdate({
+      ...order,
+      artConfirmation: { ...artConfirmation, originalArtworkUrl: url }
+    });
+  };
+
+  // Update mockup URL
+  const handleUpdateMockup = (url: string) => {
+    onUpdate({
+      ...order,
+      artConfirmation: { ...artConfirmation, mockupUrl: url }
+    });
+  };
+
+  // Final approval
+  const handleFinalApproval = (approvalName: string, method: 'Email' | 'Signed Proof' | 'Verbal' | 'Digital Signature') => {
+    onUpdate({
+      ...order,
+      artConfirmation: {
+        ...artConfirmation,
+        overallStatus: 'Approved',
+        customerApprovalName: approvalName,
+        customerApprovalDate: new Date(),
+        customerApprovalMethod: method,
+        completedAt: new Date()
+      },
+      artStatus: 'Approved'
+    });
+  };
+
+  const allPlacementsApproved = artConfirmation.placements.length > 0 &&
+    artConfirmation.placements.every(p => p.proofs.some(pr => pr.status === 'Approved'));
+
+  return (
+    <div className="space-y-6">
+      {/* Overall Status Header */}
+      <div className={`p-4 rounded-xl border-2 ${getStatusColor(artConfirmation.overallStatus)}`}>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs font-bold uppercase opacity-70">Art Confirmation Status</p>
+            <p className="text-xl font-black">{artConfirmation.overallStatus}</p>
+          </div>
+          {artConfirmation.overallStatus === 'Approved' ? (
+            <CheckCircle2 size={32} />
+          ) : artConfirmation.overallStatus === 'Revision Requested' ? (
+            <RefreshCw size={32} />
+          ) : artConfirmation.overallStatus === 'Sent to Customer' ? (
+            <Send size={32} />
+          ) : (
+            <Palette size={32} />
+          )}
+        </div>
+        {artConfirmation.lastContactedAt && (
+          <p className="text-xs mt-2 opacity-70">
+            Last contacted: {new Date(artConfirmation.lastContactedAt).toLocaleDateString()}
+          </p>
+        )}
+      </div>
+
+      {/* Original Artwork & Mockup Links */}
+      <div className="bg-slate-50 rounded-xl p-4 space-y-3">
+        <h4 className="font-bold text-slate-700 text-sm flex items-center gap-2">
+          <Image size={16} /> Artwork Files
+        </h4>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Original Artwork URL</label>
+            <input
+              type="url"
+              placeholder="https://drive.google.com/..."
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+              value={artConfirmation.originalArtworkUrl || ''}
+              onChange={(e) => handleUpdateOriginalArtwork(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Product Mockup URL</label>
+            <input
+              type="url"
+              placeholder="https://canva.com/..."
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+              value={artConfirmation.mockupUrl || ''}
+              onChange={(e) => handleUpdateMockup(e.target.value)}
+            />
+          </div>
+        </div>
+        <div className="flex gap-2">
+          {artConfirmation.originalArtworkUrl && (
+            <a href={artConfirmation.originalArtworkUrl} target="_blank" rel="noopener noreferrer"
+              className="text-xs text-blue-600 hover:underline flex items-center gap-1">
+              <Link size={12} /> View Original
+            </a>
+          )}
+          {artConfirmation.mockupUrl && (
+            <a href={artConfirmation.mockupUrl} target="_blank" rel="noopener noreferrer"
+              className="text-xs text-blue-600 hover:underline flex items-center gap-1">
+              <Eye size={12} /> View Mockup
+            </a>
+          )}
+        </div>
+      </div>
+
+      {/* Art Placements */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h4 className="font-bold text-slate-700 flex items-center gap-2">
+            <Layers size={18} /> Art Placements ({artConfirmation.placements.length})
+          </h4>
+          <button
+            onClick={() => setShowAddPlacement(true)}
+            className="text-sm text-blue-600 font-bold flex items-center gap-1 hover:underline"
+          >
+            <Plus size={16} /> Add Placement
+          </button>
+        </div>
+
+        {/* Add Placement Form */}
+        {showAddPlacement && (
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-3">
+            <h5 className="font-bold text-blue-800 text-sm">New Art Placement</h5>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2">
+                <label className="block text-xs font-bold text-slate-500 mb-1">Location *</label>
+                <select
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white"
+                  value={newPlacement.location}
+                  onChange={(e) => setNewPlacement({ ...newPlacement, location: e.target.value })}
+                >
+                  <option value="">Select location...</option>
+                  {PLACEMENT_LOCATIONS.map(loc => (
+                    <option key={loc} value={loc}>{loc}</option>
+                  ))}
+                </select>
+              </div>
+              {newPlacement.location === 'Other' && (
+                <div className="col-span-2">
+                  <input
+                    type="text"
+                    placeholder="Enter custom location..."
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+                    value={newPlacement.customLocation}
+                    onChange={(e) => setNewPlacement({ ...newPlacement, customLocation: e.target.value })}
+                  />
+                </div>
+              )}
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1">Width</label>
+                <input
+                  type="text"
+                  placeholder='e.g., 3.5"'
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+                  value={newPlacement.width}
+                  onChange={(e) => setNewPlacement({ ...newPlacement, width: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1">Height</label>
+                <input
+                  type="text"
+                  placeholder='e.g., 4"'
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+                  value={newPlacement.height}
+                  onChange={(e) => setNewPlacement({ ...newPlacement, height: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1">Colors/Threads</label>
+                <input
+                  type="number"
+                  min="1"
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+                  value={newPlacement.colorCount}
+                  onChange={(e) => setNewPlacement({ ...newPlacement, colorCount: parseInt(e.target.value) || 1 })}
+                />
+              </div>
+              <div className="col-span-2">
+                <label className="block text-xs font-bold text-slate-500 mb-1">Description</label>
+                <textarea
+                  placeholder="Special instructions..."
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm resize-none"
+                  rows={2}
+                  value={newPlacement.description}
+                  onChange={(e) => setNewPlacement({ ...newPlacement, description: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleAddPlacement}
+                disabled={!newPlacement.location || (newPlacement.location === 'Other' && !newPlacement.customLocation)}
+                className="flex-1 bg-blue-600 text-white py-2 rounded-lg font-bold text-sm hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Add Placement
+              </button>
+              <button
+                onClick={() => setShowAddPlacement(false)}
+                className="px-4 py-2 border border-slate-300 rounded-lg font-bold text-sm text-slate-600 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Placement Cards */}
+        {artConfirmation.placements.map((placement) => (
+          <div key={placement.id} className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+            {/* Placement Header */}
+            <div className="bg-slate-50 px-4 py-3 flex items-center justify-between border-b border-slate-200">
+              <div>
+                <h5 className="font-bold text-slate-800">{placement.location}</h5>
+                <div className="flex gap-3 text-xs text-slate-500 mt-1">
+                  {placement.width && <span>W: {placement.width}</span>}
+                  {placement.height && <span>H: {placement.height}</span>}
+                  {placement.colorCount && <span>{placement.colorCount} colors</span>}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {placement.proofs.some(p => p.status === 'Approved') && (
+                  <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full">Approved</span>
+                )}
+                <button
+                  onClick={() => handleDeletePlacement(placement.id)}
+                  className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            </div>
+
+            {placement.description && (
+              <div className="px-4 py-2 bg-amber-50 border-b border-amber-100 text-xs text-amber-800">
+                <strong>Notes:</strong> {placement.description}
+              </div>
+            )}
+
+            {/* Proofs */}
+            <div className="p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-400 uppercase">Proof Versions</span>
+                <button
+                  onClick={() => setShowAddProof(placement.id)}
+                  className="text-xs text-blue-600 font-bold flex items-center gap-1 hover:underline"
+                >
+                  <Plus size={14} /> Add Proof
+                </button>
+              </div>
+
+              {/* Add Proof Form */}
+              {showAddProof === placement.id && (
+                <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 space-y-2">
+                  <input
+                    type="text"
+                    placeholder="Proof name (e.g., Logo v2)"
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+                    value={newProof.proofName}
+                    onChange={(e) => setNewProof({ ...newProof, proofName: e.target.value })}
+                  />
+                  <input
+                    type="url"
+                    placeholder="Proof URL (Canva, Drive, etc.)"
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+                    value={newProof.proofUrl}
+                    onChange={(e) => setNewProof({ ...newProof, proofUrl: e.target.value })}
+                  />
+                  <textarea
+                    placeholder="Designer notes..."
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm resize-none"
+                    rows={2}
+                    value={newProof.proofNotes}
+                    onChange={(e) => setNewProof({ ...newProof, proofNotes: e.target.value })}
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleAddProof(placement.id)}
+                      disabled={!newProof.proofName}
+                      className="flex-1 bg-purple-600 text-white py-2 rounded-lg font-bold text-sm hover:bg-purple-700 disabled:opacity-50"
+                    >
+                      Add Proof
+                    </button>
+                    <button
+                      onClick={() => { setShowAddProof(null); setNewProof({ proofName: '', proofUrl: '', proofNotes: '' }); }}
+                      className="px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-600"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Proof List */}
+              {placement.proofs.length === 0 ? (
+                <p className="text-xs text-slate-400 text-center py-4">No proofs yet. Add a proof to get started.</p>
+              ) : (
+                <div className="space-y-2">
+                  {placement.proofs.map((proof) => (
+                    <div key={proof.id} className="border border-slate-200 rounded-lg p-3">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className={`w-2 h-2 rounded-full ${getProofStatusColor(proof.status)}`} />
+                          <div>
+                            <p className="font-bold text-sm text-slate-800">
+                              v{proof.version}: {proof.proofName}
+                            </p>
+                            <p className="text-xs text-slate-400">
+                              Created: {new Date(proof.createdAt).toLocaleDateString()}
+                              {proof.sentToCustomerAt && ` • Sent: ${new Date(proof.sentToCustomerAt).toLocaleDateString()}`}
+                            </p>
+                          </div>
+                        </div>
+                        <span className={`px-2 py-0.5 text-xs font-bold rounded-full ${
+                          proof.status === 'Approved' ? 'bg-green-100 text-green-700' :
+                          proof.status === 'Sent' ? 'bg-blue-100 text-blue-700' :
+                          proof.status === 'Revision Needed' ? 'bg-orange-100 text-orange-700' :
+                          'bg-slate-100 text-slate-600'
+                        }`}>
+                          {proof.status}
+                        </span>
+                      </div>
+
+                      {proof.proofNotes && (
+                        <p className="text-xs text-slate-500 mt-2 bg-slate-50 rounded p-2">
+                          <strong>Designer:</strong> {proof.proofNotes}
+                        </p>
+                      )}
+
+                      {proof.customerFeedback && (
+                        <p className="text-xs text-orange-700 mt-2 bg-orange-50 rounded p-2">
+                          <strong>Customer Feedback:</strong> {proof.customerFeedback}
+                        </p>
+                      )}
+
+                      {/* Proof Actions */}
+                      <div className="flex flex-wrap gap-2 mt-3">
+                        {proof.proofUrl && (
+                          <a
+                            href={proof.proofUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg font-medium flex items-center gap-1 hover:bg-slate-200"
+                          >
+                            <Eye size={12} /> View Proof
+                          </a>
+                        )}
+                        {proof.status === 'Draft' && (
+                          <button
+                            onClick={() => handleSendProof(placement.id, proof.id)}
+                            className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg font-medium flex items-center gap-1 hover:bg-blue-700"
+                          >
+                            <Send size={12} /> Send to Customer
+                          </button>
+                        )}
+                        {proof.status === 'Sent' && (
+                          <>
+                            <button
+                              onClick={() => setFeedbackInput({ proofId: proof.id, placementId: placement.id, feedback: '' })}
+                              className="text-xs bg-orange-500 text-white px-3 py-1.5 rounded-lg font-medium flex items-center gap-1 hover:bg-orange-600"
+                            >
+                              <MessageSquare size={12} /> Record Feedback
+                            </button>
+                            <button
+                              onClick={() => handleApproveProof(placement.id, proof.id)}
+                              className="text-xs bg-green-600 text-white px-3 py-1.5 rounded-lg font-medium flex items-center gap-1 hover:bg-green-700"
+                            >
+                              <Check size={12} /> Mark Approved
+                            </button>
+                          </>
+                        )}
+                        {proof.status === 'Revision Needed' && (
+                          <span className="text-xs text-orange-600 font-medium">Revision requested - add new proof version</span>
+                        )}
+                      </div>
+
+                      {/* Feedback Input */}
+                      {feedbackInput?.proofId === proof.id && (
+                        <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-lg space-y-2">
+                          <textarea
+                            placeholder="Enter customer feedback..."
+                            className="w-full border border-orange-200 rounded-lg px-3 py-2 text-sm resize-none"
+                            rows={3}
+                            value={feedbackInput.feedback}
+                            onChange={(e) => setFeedbackInput({ ...feedbackInput, feedback: e.target.value })}
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              onClick={handleRecordFeedback}
+                              disabled={!feedbackInput.feedback}
+                              className="flex-1 bg-orange-500 text-white py-2 rounded-lg font-bold text-sm hover:bg-orange-600 disabled:opacity-50"
+                            >
+                              Save Feedback & Request Revision
+                            </button>
+                            <button
+                              onClick={() => setFeedbackInput(null)}
+                              className="px-3 py-2 border border-slate-300 rounded-lg text-sm"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Client Markup Files */}
+                      {proof.markupFiles && proof.markupFiles.length > 0 && (
+                        <div className="mt-3 p-2 bg-purple-50 border border-purple-200 rounded-lg">
+                          <p className="text-xs font-bold text-purple-700 mb-2 flex items-center gap-1">
+                            <Paperclip size={12} /> Client Markups ({proof.markupFiles.length})
+                          </p>
+                          <div className="space-y-1">
+                            {proof.markupFiles.map(file => (
+                              <a
+                                key={file.id}
+                                href={file.fileUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-2 text-xs text-purple-600 hover:text-purple-800 hover:underline"
+                              >
+                                <FileImage size={12} />
+                                {file.fileName}
+                                <span className="text-purple-400">({new Date(file.uploadedAt).toLocaleDateString()})</span>
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Upload Markup Button */}
+                      {proof.status === 'Sent' && (
+                        <button
+                          onClick={() => setShowMarkupUpload({ placementId: placement.id, proofId: proof.id })}
+                          className="mt-2 text-xs text-purple-600 font-medium flex items-center gap-1 hover:underline"
+                        >
+                          <Upload size={12} /> Upload Client Markup
+                        </button>
+                      )}
+
+                      {/* Markup Upload Form */}
+                      {showMarkupUpload?.proofId === proof.id && (
+                        <div className="mt-3 p-3 bg-purple-50 border border-purple-200 rounded-lg space-y-2">
+                          <p className="text-xs font-bold text-purple-700">Upload Client Marked-up Proof</p>
+                          <input
+                            type="text"
+                            placeholder="File name (e.g., logo-v2-markup.pdf)"
+                            className="w-full border border-purple-200 rounded-lg px-3 py-2 text-sm"
+                            value={newFile.fileName}
+                            onChange={(e) => setNewFile({ ...newFile, fileName: e.target.value })}
+                          />
+                          <input
+                            type="url"
+                            placeholder="File URL (Drive, Dropbox, etc.)"
+                            className="w-full border border-purple-200 rounded-lg px-3 py-2 text-sm"
+                            value={newFile.fileUrl}
+                            onChange={(e) => setNewFile({ ...newFile, fileUrl: e.target.value })}
+                          />
+                          <textarea
+                            placeholder="Notes about the markup..."
+                            className="w-full border border-purple-200 rounded-lg px-3 py-2 text-sm resize-none"
+                            rows={2}
+                            value={newFile.notes}
+                            onChange={(e) => setNewFile({ ...newFile, notes: e.target.value })}
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleUploadMarkupFile(placement.id, proof.id)}
+                              disabled={!newFile.fileName || !newFile.fileUrl}
+                              className="flex-1 bg-purple-600 text-white py-2 rounded-lg font-bold text-sm hover:bg-purple-700 disabled:opacity-50"
+                            >
+                              Upload Markup
+                            </button>
+                            <button
+                              onClick={() => { setShowMarkupUpload(null); setNewFile({ fileName: '', fileUrl: '', fileType: 'original', notes: '', isMarkup: false }); }}
+                              className="px-3 py-2 border border-slate-300 rounded-lg text-sm"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+
+        {artConfirmation.placements.length === 0 && !showAddPlacement && (
+          <div className="text-center py-8 bg-slate-50 rounded-xl border-2 border-dashed border-slate-200">
+            <Palette size={32} className="mx-auto text-slate-300 mb-2" />
+            <p className="text-slate-400 text-sm">No art placements defined yet.</p>
+            <button
+              onClick={() => setShowAddPlacement(true)}
+              className="mt-2 text-blue-600 font-bold text-sm hover:underline"
+            >
+              Add your first placement
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Designer Notes */}
+      <div className="space-y-3">
+        <h4 className="font-bold text-slate-700 text-sm flex items-center gap-2">
+          <Edit3 size={16} /> Designer Notes
+        </h4>
+        <textarea
+          placeholder="Internal notes about artwork, colors, fonts, etc..."
+          className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm resize-none focus:ring-2 focus:ring-blue-500 outline-none"
+          rows={3}
+          value={artConfirmation.designerNotes || ''}
+          onChange={(e) => handleUpdateNotes('designerNotes', e.target.value)}
+        />
+      </div>
+
+      {/* Internal Notes */}
+      <div className="space-y-3">
+        <h4 className="font-bold text-slate-700 text-sm flex items-center gap-2">
+          <FileText size={16} /> Internal Notes
+        </h4>
+        <textarea
+          placeholder="Communication notes, customer preferences, etc..."
+          className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm resize-none focus:ring-2 focus:ring-blue-500 outline-none"
+          rows={3}
+          value={artConfirmation.internalNotes || ''}
+          onChange={(e) => handleUpdateNotes('internalNotes', e.target.value)}
+        />
+      </div>
+
+      {/* Client Uploaded Files */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h4 className="font-bold text-slate-700 text-sm flex items-center gap-2">
+            <Upload size={16} /> Client Files ({clientFiles.length})
+          </h4>
+          <button
+            onClick={() => setShowClientFileUpload(true)}
+            className="text-sm text-blue-600 font-bold flex items-center gap-1 hover:underline"
+          >
+            <FilePlus size={14} /> Add File
+          </button>
+        </div>
+
+        {/* Client File Upload Form */}
+        {showClientFileUpload && (
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-3">
+            <h5 className="font-bold text-blue-800 text-sm">Upload Client File</h5>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2">
+                <label className="block text-xs font-bold text-slate-500 mb-1">File Name *</label>
+                <input
+                  type="text"
+                  placeholder="e.g., company-logo.ai"
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+                  value={newFile.fileName}
+                  onChange={(e) => setNewFile({ ...newFile, fileName: e.target.value })}
+                />
+              </div>
+              <div className="col-span-2">
+                <label className="block text-xs font-bold text-slate-500 mb-1">File URL *</label>
+                <input
+                  type="url"
+                  placeholder="https://drive.google.com/..."
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+                  value={newFile.fileUrl}
+                  onChange={(e) => setNewFile({ ...newFile, fileUrl: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1">File Type</label>
+                <select
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white"
+                  value={newFile.fileType}
+                  onChange={(e) => setNewFile({ ...newFile, fileType: e.target.value as ArtFileType })}
+                >
+                  <option value="original">Original Artwork</option>
+                  <option value="reference">Reference Image</option>
+                  <option value="markup">Markup/Feedback</option>
+                  <option value="final">Final Approved</option>
+                </select>
+              </div>
+              <div className="flex items-center gap-2 pt-5">
+                <input
+                  type="checkbox"
+                  id="isMarkup"
+                  checked={newFile.isMarkup}
+                  onChange={(e) => setNewFile({ ...newFile, isMarkup: e.target.checked })}
+                  className="w-4 h-4 text-blue-600 rounded"
+                />
+                <label htmlFor="isMarkup" className="text-sm text-slate-600">Contains Markup/Edits</label>
+              </div>
+              <div className="col-span-2">
+                <label className="block text-xs font-bold text-slate-500 mb-1">Notes</label>
+                <textarea
+                  placeholder="Description or notes about this file..."
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm resize-none"
+                  rows={2}
+                  value={newFile.notes}
+                  onChange={(e) => setNewFile({ ...newFile, notes: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleUploadClientFile}
+                disabled={!newFile.fileName || !newFile.fileUrl}
+                className="flex-1 bg-blue-600 text-white py-2 rounded-lg font-bold text-sm hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Upload File
+              </button>
+              <button
+                onClick={() => { setShowClientFileUpload(false); setNewFile({ fileName: '', fileUrl: '', fileType: 'original', notes: '', isMarkup: false }); }}
+                className="px-4 py-2 border border-slate-300 rounded-lg font-bold text-sm text-slate-600 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Client Files List */}
+        {clientFiles.length > 0 ? (
+          <div className="space-y-2">
+            {clientFiles.map(file => (
+              <div key={file.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-200">
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-lg ${
+                    file.fileType === 'original' ? 'bg-blue-100 text-blue-600' :
+                    file.fileType === 'markup' ? 'bg-purple-100 text-purple-600' :
+                    file.fileType === 'reference' ? 'bg-amber-100 text-amber-600' :
+                    'bg-green-100 text-green-600'
+                  }`}>
+                    {file.isMarkup ? <Paperclip size={16} /> : <File size={16} />}
+                  </div>
+                  <div>
+                    <p className="font-bold text-sm text-slate-800">{file.fileName}</p>
+                    <p className="text-xs text-slate-500">
+                      {file.fileType} • Uploaded {new Date(file.uploadedAt).toLocaleDateString()}
+                      {file.notes && <span className="italic"> • {file.notes}</span>}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <a
+                    href={file.fileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                    title="View file"
+                  >
+                    <Eye size={16} />
+                  </a>
+                  <button
+                    onClick={() => handleDeleteClientFile(file.id)}
+                    className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                    title="Delete file"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-4 bg-slate-50 rounded-xl border-2 border-dashed border-slate-200">
+            <File size={24} className="mx-auto text-slate-300 mb-1" />
+            <p className="text-slate-400 text-xs">No client files uploaded yet</p>
+          </div>
+        )}
+      </div>
+
+      {/* Revision History */}
+      <div className="space-y-3">
+        <button
+          onClick={() => setShowRevisionHistory(!showRevisionHistory)}
+          className="w-full flex items-center justify-between font-bold text-slate-700 text-sm hover:text-slate-900"
+        >
+          <span className="flex items-center gap-2">
+            <History size={16} /> Revision History ({revisionHistory.length})
+          </span>
+          {showRevisionHistory ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+        </button>
+
+        {showRevisionHistory && (
+          <div className="bg-slate-50 rounded-xl border border-slate-200 overflow-hidden">
+            {revisionHistory.length > 0 ? (
+              <div className="divide-y divide-slate-200 max-h-64 overflow-y-auto">
+                {[...revisionHistory].reverse().map((rev, idx) => (
+                  <div key={rev.id} className="p-3 flex gap-3">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                      rev.action === 'approved' ? 'bg-green-100 text-green-600' :
+                      rev.action === 'file_uploaded' ? 'bg-blue-100 text-blue-600' :
+                      rev.action === 'proof_created' ? 'bg-purple-100 text-purple-600' :
+                      rev.action === 'proof_sent' ? 'bg-sky-100 text-sky-600' :
+                      rev.action === 'feedback_received' ? 'bg-orange-100 text-orange-600' :
+                      rev.action === 'revision_requested' ? 'bg-amber-100 text-amber-600' :
+                      'bg-slate-100 text-slate-600'
+                    }`}>
+                      {rev.action === 'approved' ? <Check size={14} /> :
+                       rev.action === 'file_uploaded' ? <Upload size={14} /> :
+                       rev.action === 'proof_created' ? <FilePlus size={14} /> :
+                       rev.action === 'proof_sent' ? <Send size={14} /> :
+                       rev.action === 'feedback_received' ? <MessageSquare size={14} /> :
+                       <Clock size={14} />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-slate-800">{rev.description}</p>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        {rev.performedBy && <span className="font-medium">{rev.performedBy}</span>}
+                        {rev.performedBy && ' • '}
+                        {new Date(rev.timestamp).toLocaleString()}
+                      </p>
+                      {rev.notes && (
+                        <p className="text-xs text-slate-600 mt-1 italic">"{rev.notes}"</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-6">
+                <History size={24} className="mx-auto text-slate-300 mb-1" />
+                <p className="text-slate-400 text-xs">No revision history yet</p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Action Buttons */}
+      <div className="space-y-3 pt-4 border-t border-slate-200">
+        {allPlacementsApproved ? (
+          <button
+            onClick={() => moveNext('Inventory Order', { artStatus: 'Approved' })}
+            className="w-full bg-green-600 text-white py-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-green-700 transition-colors"
+          >
+            <CheckCircle2 size={20} /> All Art Approved - Continue to Purchasing
+          </button>
+        ) : (
+          <>
+            <button
+              onClick={() => {
+                handleFinalApproval(order.customer, 'Email');
+                moveNext('Inventory Order', { artStatus: 'Approved' });
+              }}
+              className="w-full bg-green-600 text-white py-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-green-700 transition-colors"
+            >
+              <Check size={20} /> Art Approved - Continue
+            </button>
+            <button
+              onClick={() => moveNext('Inventory Order')}
+              className="w-full bg-orange-500 text-white py-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-orange-600 transition-colors"
+            >
+              <AlertCircle size={20} /> Skip Art (Advance with Art Pending)
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// Closed Order Panel Component
+interface ClosedOrderPanelProps {
+  order: Order;
+  onUpdate: (order: Order) => void;
+}
+
+const ClosedOrderPanel: React.FC<ClosedOrderPanelProps> = ({ order, onUpdate }) => {
+  const [showReopenOptions, setShowReopenOptions] = useState(false);
+  const [selectedReopenStage, setSelectedReopenStage] = useState<OrderStatus>(order.reopenedFrom || 'Quote');
+
+  // Available stages to reopen to
+  const reopenStages: OrderStatus[] = [
+    'Quote', 'Approval', 'Art Confirmation', 'Inventory Order',
+    'Production Prep', 'Inventory Received', 'Production', 'Fulfillment', 'Invoice', 'Closeout'
+  ];
+
+  const handleReopen = () => {
+    onUpdate({
+      ...order,
+      status: selectedReopenStage,
+      closedAt: undefined,
+      closedReason: undefined,
+      reopenedFrom: undefined,
+      history: [
+        ...order.history,
+        {
+          timestamp: new Date(),
+          action: 'Order Reopened',
+          previousValue: 'Closed',
+          newValue: selectedReopenStage,
+          notes: `Reopened to ${selectedReopenStage} stage`
+        }
+      ]
+    });
+  };
+
+  // Calculate order summary
+  const totalItems = order.lineItems?.reduce((sum, item) => sum + item.qty, 0) || 0;
+  const totalValue = order.lineItems?.reduce((sum, item) => sum + (item.price * item.qty), 0) || 0;
+
+  return (
+    <div className="space-y-6">
+      {/* Closed Status Header */}
+      <div className="bg-slate-100 rounded-xl p-6 border-2 border-slate-200">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 bg-slate-600 rounded-xl flex items-center justify-center">
+            <Archive className="text-white" size={24} />
+          </div>
+          <div>
+            <h3 className="text-xl font-black text-slate-800">Order Closed</h3>
+            <p className="text-slate-500 text-sm">
+              Closed on {order.closedAt ? new Date(order.closedAt).toLocaleDateString() : 'Unknown date'}
+              {order.closedReason && ` • Reason: ${order.closedReason}`}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Order Summary Card */}
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div className="bg-slate-50 px-4 py-3 border-b border-slate-200">
+          <h4 className="font-bold text-slate-700">Order Summary</h4>
+        </div>
+        <div className="p-4 space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-slate-50 rounded-lg p-3">
+              <p className="text-xs text-slate-500 font-bold uppercase">Total Items</p>
+              <p className="text-xl font-black text-slate-900">{totalItems}</p>
+            </div>
+            <div className="bg-slate-50 rounded-lg p-3">
+              <p className="text-xs text-slate-500 font-bold uppercase">Order Value</p>
+              <p className="text-xl font-black text-green-600">${totalValue.toFixed(2)}</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <p className="text-slate-500">Created</p>
+              <p className="font-bold text-slate-800">
+                {new Date(order.createdAt).toLocaleDateString()}
+              </p>
+            </div>
+            <div>
+              <p className="text-slate-500">Due Date</p>
+              <p className="font-bold text-slate-800">{order.dueDate || 'Not set'}</p>
+            </div>
+            <div>
+              <p className="text-slate-500">Art Status</p>
+              <p className={`font-bold ${
+                order.artStatus === 'Approved' ? 'text-green-600' : 'text-slate-800'
+              }`}>{order.artStatus}</p>
+            </div>
+            <div>
+              <p className="text-slate-500">Fulfillment</p>
+              <p className="font-bold text-slate-800">
+                {order.fulfillment.method || 'Not specified'}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Closeout Checklist Summary */}
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div className="bg-slate-50 px-4 py-3 border-b border-slate-200">
+          <h4 className="font-bold text-slate-700">Closeout Checklist</h4>
+        </div>
+        <div className="p-4 space-y-2">
+          <div className="flex items-center gap-3">
+            <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
+              order.closeoutChecklist.filesSaved ? 'bg-green-500' : 'bg-slate-200'
+            }`}>
+              {order.closeoutChecklist.filesSaved && <Check size={12} className="text-white" />}
+            </div>
+            <span className="text-sm text-slate-700">Files Saved</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
+              order.closeoutChecklist.canvaArchived ? 'bg-green-500' : 'bg-slate-200'
+            }`}>
+              {order.closeoutChecklist.canvaArchived && <Check size={12} className="text-white" />}
+            </div>
+            <span className="text-sm text-slate-700">Canva Archived</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
+              order.closeoutChecklist.summaryUploaded ? 'bg-green-500' : 'bg-slate-200'
+            }`}>
+              {order.closeoutChecklist.summaryUploaded && <Check size={12} className="text-white" />}
+            </div>
+            <span className="text-sm text-slate-700">Summary Uploaded</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
+              order.closeoutChecklist.invoiceSent ? 'bg-green-500' : 'bg-slate-200'
+            }`}>
+              {order.closeoutChecklist.invoiceSent && <Check size={12} className="text-white" />}
+            </div>
+            <span className="text-sm text-slate-700">Invoice Sent</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Reopen Order Section */}
+      <div className="bg-amber-50 rounded-xl border border-amber-200 p-4">
+        <div className="flex items-center gap-3 mb-3">
+          <RefreshCw size={20} className="text-amber-600" />
+          <h4 className="font-bold text-amber-800">Reopen Order</h4>
+        </div>
+
+        {!showReopenOptions ? (
+          <button
+            onClick={() => setShowReopenOptions(true)}
+            className="w-full bg-amber-600 text-white py-3 rounded-xl font-bold hover:bg-amber-700 transition-colors"
+          >
+            Reopen This Order
+          </button>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-sm text-amber-700">Select which stage to reopen this order to:</p>
+            <select
+              value={selectedReopenStage}
+              onChange={(e) => setSelectedReopenStage(e.target.value as OrderStatus)}
+              className="w-full border border-amber-300 rounded-xl px-4 py-3 bg-white text-slate-800 font-medium focus:ring-2 focus:ring-amber-500 outline-none"
+            >
+              {reopenStages.map(stage => (
+                <option key={stage} value={stage}>{stage}</option>
+              ))}
+            </select>
+            <div className="flex gap-2">
+              <button
+                onClick={handleReopen}
+                className="flex-1 bg-amber-600 text-white py-3 rounded-xl font-bold hover:bg-amber-700 transition-colors"
+              >
+                Reopen to {selectedReopenStage}
+              </button>
+              <button
+                onClick={() => setShowReopenOptions(false)}
+                className="px-4 py-3 border border-amber-300 rounded-xl font-bold text-amber-700 hover:bg-amber-100 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Permanently Archive Option */}
+      <div className="bg-red-50 rounded-xl border border-red-200 p-4">
+        <div className="flex items-center gap-3 mb-3">
+          <Trash2 size={20} className="text-red-600" />
+          <h4 className="font-bold text-red-800">Permanent Archive</h4>
+        </div>
+        <p className="text-sm text-red-700 mb-3">
+          Permanently archive this order. It will be removed from the closed orders list but data will be retained.
+        </p>
+        <button
+          onClick={() => onUpdate({ ...order, isArchived: true, archivedAt: new Date() })}
+          className="w-full bg-red-600 text-white py-3 rounded-xl font-bold hover:bg-red-700 transition-colors"
+        >
+          Permanently Archive
+        </button>
+      </div>
+    </div>
+  );
+};
 
 const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClose, onUpdate }) => {
   const [showAddItem, setShowAddItem] = useState(false);
@@ -280,10 +1680,10 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
   const allReceived = (order.lineItems?.length || 0) > 0 && order.lineItems?.every(li => li.received);
   const allProductionComplete = (order.lineItems?.length || 0) > 0 && order.lineItems?.every(li => li.decorated && li.packed);
   const fulfillmentReady = order.fulfillment.shippingLabelPrinted || order.fulfillment.customerPickedUp;
+  const invoiceComplete = order.invoiceStatus?.invoiceCreated && order.invoiceStatus?.invoiceSent;
   const closeoutComplete = order.closeoutChecklist.filesSaved &&
                           order.closeoutChecklist.canvaArchived &&
-                          order.closeoutChecklist.summaryUploaded &&
-                          order.closeoutChecklist.invoiceSent;
+                          order.closeoutChecklist.summaryUploaded;
 
   const canAddSkuToOrder = skuConfig.itemNumber && skuConfig.name && skuPreview.totalQty > 0;
 
@@ -706,32 +2106,7 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
 
         {/* Stage 3: Art Confirmation */}
         {order.status === 'Art Confirmation' && (
-          <div className="space-y-6">
-            <div className="bg-slate-50 p-6 rounded-2xl flex items-center justify-between border border-slate-100">
-              <div>
-                <p className="text-sm font-bold text-slate-400 uppercase">Art Status</p>
-                <p className={`text-xl font-black ${order.artStatus === 'Approved' ? 'text-green-600' : 'text-orange-500'}`}>
-                  {order.artStatus}
-                </p>
-              </div>
-              {order.artStatus === 'Pending' ? <AlertCircle className="text-orange-500" size={32} /> : <Check className="text-green-600" size={32} />}
-            </div>
-
-            <div className="grid grid-cols-1 gap-3">
-              <button
-                onClick={() => moveNext('Inventory Order', { artStatus: 'Approved' })}
-                className="bg-green-600 text-white py-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-green-700 transition-colors"
-              >
-                <Check size={20} /> Art Approved
-              </button>
-              <button
-                onClick={() => moveNext('Inventory Order')}
-                className="bg-orange-500 text-white py-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-orange-600 transition-colors"
-              >
-                <AlertCircle size={20} /> Advance to Purchasing (Art Pending)
-              </button>
-            </div>
-          </div>
+          <ArtConfirmationPanel order={order} onUpdate={onUpdate} moveNext={moveNext} />
         )}
 
         {/* Stage 4: Inventory Order */}
@@ -1081,17 +2456,216 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
           </div>
         )}
 
-        {/* Stage 9: Invoice & Closeout */}
+        {/* Stage 9: Invoice */}
         {order.status === 'Invoice' && (
           <div className="space-y-6">
             <div className="flex items-center gap-3">
-              <Archive className="text-blue-600" size={24} />
+              <DollarSign className="text-green-600" size={24} />
               <div>
-                <h3 className="text-xl font-bold text-slate-900">Job Closeout</h3>
-                <p className="text-slate-500 text-sm">Complete all administrative tasks to archive this order.</p>
+                <h3 className="text-xl font-bold text-slate-900">Invoice</h3>
+                <p className="text-slate-500 text-sm">Create and send invoice to customer, track payment.</p>
               </div>
             </div>
 
+            {/* Invoice Details */}
+            <div className="bg-slate-50 rounded-xl p-4 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Invoice Number</label>
+                  <input
+                    type="text"
+                    placeholder="INV-2024-001"
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 outline-none"
+                    value={order.invoiceStatus?.invoiceNumber || ''}
+                    onChange={(e) => onUpdate({
+                      ...order,
+                      invoiceStatus: { ...order.invoiceStatus, invoiceNumber: e.target.value }
+                    })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Invoice Amount</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      placeholder={grandTotal.toFixed(2)}
+                      className="w-full border border-slate-200 rounded-lg px-3 py-2 pl-7 text-sm focus:ring-2 focus:ring-green-500 outline-none"
+                      value={order.invoiceStatus?.invoiceAmount || ''}
+                      onChange={(e) => onUpdate({
+                        ...order,
+                        invoiceStatus: { ...order.invoiceStatus, invoiceAmount: parseFloat(e.target.value) || 0 }
+                      })}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Invoice Checklist */}
+            <div className="space-y-3">
+              <div
+                onClick={() => onUpdate({
+                  ...order,
+                  invoiceStatus: { ...order.invoiceStatus, invoiceCreated: !order.invoiceStatus?.invoiceCreated }
+                })}
+                className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100 cursor-pointer hover:bg-slate-100 transition-colors"
+              >
+                <p className="font-bold text-slate-900">Invoice Created</p>
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center border-2 transition-colors ${
+                  order.invoiceStatus?.invoiceCreated ? 'bg-green-500 border-green-500 text-white' : 'border-slate-300'
+                }`}>
+                  {order.invoiceStatus?.invoiceCreated && <Check size={14} strokeWidth={4} />}
+                </div>
+              </div>
+
+              <div
+                onClick={() => onUpdate({
+                  ...order,
+                  invoiceStatus: {
+                    ...order.invoiceStatus,
+                    invoiceSent: !order.invoiceStatus?.invoiceSent,
+                    invoiceSentAt: !order.invoiceStatus?.invoiceSent ? new Date() : order.invoiceStatus?.invoiceSentAt
+                  }
+                })}
+                className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100 cursor-pointer hover:bg-slate-100 transition-colors"
+              >
+                <div>
+                  <p className="font-bold text-slate-900">Invoice Sent to Customer</p>
+                  {order.invoiceStatus?.invoiceSentAt && (
+                    <p className="text-xs text-slate-500">Sent: {new Date(order.invoiceStatus.invoiceSentAt).toLocaleString()}</p>
+                  )}
+                </div>
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center border-2 transition-colors ${
+                  order.invoiceStatus?.invoiceSent ? 'bg-green-500 border-green-500 text-white' : 'border-slate-300'
+                }`}>
+                  {order.invoiceStatus?.invoiceSent && <Check size={14} strokeWidth={4} />}
+                </div>
+              </div>
+            </div>
+
+            {/* Payment Section */}
+            <div className="border-t border-slate-200 pt-4">
+              <h4 className="font-bold text-slate-700 text-sm mb-3 flex items-center gap-2">
+                <DollarSign size={16} /> Payment Tracking
+              </h4>
+              <div
+                onClick={() => onUpdate({
+                  ...order,
+                  invoiceStatus: {
+                    ...order.invoiceStatus,
+                    paymentReceived: !order.invoiceStatus?.paymentReceived,
+                    paymentReceivedAt: !order.invoiceStatus?.paymentReceived ? new Date() : order.invoiceStatus?.paymentReceivedAt
+                  }
+                })}
+                className={`flex items-center justify-between p-4 rounded-xl border-2 cursor-pointer transition-colors ${
+                  order.invoiceStatus?.paymentReceived
+                    ? 'bg-green-50 border-green-200'
+                    : 'bg-amber-50 border-amber-200'
+                }`}
+              >
+                <div>
+                  <p className={`font-bold ${order.invoiceStatus?.paymentReceived ? 'text-green-800' : 'text-amber-800'}`}>
+                    {order.invoiceStatus?.paymentReceived ? 'Payment Received' : 'Awaiting Payment'}
+                  </p>
+                  {order.invoiceStatus?.paymentReceivedAt && (
+                    <p className="text-xs text-green-600">Received: {new Date(order.invoiceStatus.paymentReceivedAt).toLocaleString()}</p>
+                  )}
+                </div>
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center border-2 transition-colors ${
+                  order.invoiceStatus?.paymentReceived ? 'bg-green-500 border-green-500 text-white' : 'border-amber-400'
+                }`}>
+                  {order.invoiceStatus?.paymentReceived && <Check size={14} strokeWidth={4} />}
+                </div>
+              </div>
+
+              {order.invoiceStatus?.paymentReceived && (
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Payment Method</label>
+                    <select
+                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white"
+                      value={order.invoiceStatus?.paymentMethod || ''}
+                      onChange={(e) => onUpdate({
+                        ...order,
+                        invoiceStatus: { ...order.invoiceStatus, paymentMethod: e.target.value as any }
+                      })}
+                    >
+                      <option value="">Select...</option>
+                      <option value="Cash">Cash</option>
+                      <option value="Check">Check</option>
+                      <option value="Credit Card">Credit Card</option>
+                      <option value="ACH">ACH/Bank Transfer</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Payment Notes</label>
+                    <input
+                      type="text"
+                      placeholder="Check #, confirmation, etc."
+                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+                      value={order.invoiceStatus?.paymentNotes || ''}
+                      onChange={(e) => onUpdate({
+                        ...order,
+                        invoiceStatus: { ...order.invoiceStatus, paymentNotes: e.target.value }
+                      })}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <button
+              disabled={!invoiceComplete}
+              onClick={() => onUpdate({ ...order, status: 'Closeout' })}
+              className={`w-full py-4 rounded-xl font-bold transition-all ${
+                invoiceComplete ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+              }`}
+            >
+              Continue to Closeout
+            </button>
+          </div>
+        )}
+
+        {/* Stage 10: Closeout */}
+        {order.status === 'Closeout' && (
+          <div className="space-y-6">
+            <div className="flex items-center gap-3">
+              <Archive className="text-purple-600" size={24} />
+              <div>
+                <h3 className="text-xl font-bold text-slate-900">Project Closeout</h3>
+                <p className="text-slate-500 text-sm">Archive project files and complete administrative tasks.</p>
+              </div>
+            </div>
+
+            {/* Payment Status Summary */}
+            <div className={`p-4 rounded-xl border-2 ${
+              order.invoiceStatus?.paymentReceived
+                ? 'bg-green-50 border-green-200'
+                : 'bg-amber-50 border-amber-200'
+            }`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <DollarSign size={20} className={order.invoiceStatus?.paymentReceived ? 'text-green-600' : 'text-amber-600'} />
+                  <div>
+                    <p className={`font-bold ${order.invoiceStatus?.paymentReceived ? 'text-green-800' : 'text-amber-800'}`}>
+                      {order.invoiceStatus?.paymentReceived ? 'Payment Received' : 'Payment Pending'}
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      Invoice: {order.invoiceStatus?.invoiceNumber || 'N/A'} •
+                      ${(order.invoiceStatus?.invoiceAmount || grandTotal).toFixed(2)}
+                    </p>
+                  </div>
+                </div>
+                {order.invoiceStatus?.paymentReceived && (
+                  <Check size={20} className="text-green-600" />
+                )}
+              </div>
+            </div>
+
+            {/* Closeout Checklist */}
             <div className="space-y-3">
               <div
                 onClick={() => onUpdate({
@@ -1100,7 +2674,7 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
                 })}
                 className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100 cursor-pointer hover:bg-slate-100 transition-colors"
               >
-                <p className="font-bold text-slate-900">Files Saved to Customer Folder</p>
+                <p className="font-bold text-slate-900">Project Files Saved to Customer Folder</p>
                 <div className={`w-6 h-6 rounded-full flex items-center justify-center border-2 transition-colors ${
                   order.closeoutChecklist.filesSaved ? 'bg-green-500 border-green-500 text-white' : 'border-slate-300'
                 }`}>
@@ -1137,26 +2711,17 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
                   {order.closeoutChecklist.summaryUploaded && <Check size={14} strokeWidth={4} />}
                 </div>
               </div>
-
-              <div
-                onClick={() => onUpdate({
-                  ...order,
-                  closeoutChecklist: { ...order.closeoutChecklist, invoiceSent: !order.closeoutChecklist.invoiceSent }
-                })}
-                className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100 cursor-pointer hover:bg-slate-100 transition-colors"
-              >
-                <p className="font-bold text-slate-900">Invoice Created & Sent</p>
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center border-2 transition-colors ${
-                  order.closeoutChecklist.invoiceSent ? 'bg-green-500 border-green-500 text-white' : 'border-slate-300'
-                }`}>
-                  {order.closeoutChecklist.invoiceSent && <Check size={14} strokeWidth={4} />}
-                </div>
-              </div>
             </div>
 
             <button
               disabled={!closeoutComplete}
-              onClick={() => onUpdate({ ...order, isArchived: true, archivedAt: new Date() })}
+              onClick={() => onUpdate({
+                ...order,
+                status: 'Closed',
+                closedAt: new Date(),
+                closedReason: 'Completed',
+                reopenedFrom: 'Closeout'
+              })}
               className={`w-full py-4 rounded-xl font-bold transition-all ${
                 closeoutComplete ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-slate-100 text-slate-400 cursor-not-allowed'
               }`}
@@ -1164,6 +2729,11 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
               Close & Archive Order
             </button>
           </div>
+        )}
+
+        {/* Closed Order View */}
+        {order.status === 'Closed' && (
+          <ClosedOrderPanel order={order} onUpdate={onUpdate} />
         )}
       </div>
 

@@ -1,4 +1,4 @@
-import { OrderStatus, Order, PrepStatus, FulfillmentStatus, CloseoutChecklist, LeadInfo } from './types';
+import { OrderStatus, Order, PrepStatus, FulfillmentStatus, InvoiceStatus, CloseoutChecklist, LeadInfo, ArtConfirmation } from './types';
 
 export const ORDER_STAGES: OrderStatus[] = [
   'Lead',
@@ -10,7 +10,8 @@ export const ORDER_STAGES: OrderStatus[] = [
   'Inventory Received',
   'Production',
   'Fulfillment',
-  'Invoice'
+  'Invoice',
+  'Closeout'
 ];
 
 // Default values for new orders
@@ -26,11 +27,16 @@ export const DEFAULT_FULFILLMENT: FulfillmentStatus = {
   customerPickedUp: false
 };
 
+export const DEFAULT_INVOICE_STATUS: InvoiceStatus = {
+  invoiceCreated: false,
+  invoiceSent: false,
+  paymentReceived: false
+};
+
 export const DEFAULT_CLOSEOUT: CloseoutChecklist = {
   filesSaved: false,
   canvaArchived: false,
-  summaryUploaded: false,
-  invoiceSent: false
+  summaryUploaded: false
 };
 
 export const DEFAULT_LEAD_INFO: LeadInfo = {
@@ -41,6 +47,14 @@ export const DEFAULT_LEAD_INFO: LeadInfo = {
   productInterest: '',
   decorationInterest: null,
   contactedAt: new Date()
+};
+
+export const DEFAULT_ART_CONFIRMATION: ArtConfirmation = {
+  overallStatus: 'Not Started',
+  placements: [],
+  clientFiles: [],
+  referenceFiles: [],
+  revisionHistory: []
 };
 
 export const DUMMY_ORDERS: Order[] = [
@@ -56,7 +70,7 @@ export const DUMMY_ORDERS: Order[] = [
     createdAt: new Date(Date.now() - 1000 * 60 * 60 * 2),
     dueDate: '',
     lineItems: [],
-    artStatus: 'Pending',
+    artStatus: 'Not Started',
     rushOrder: false,
     leadInfo: {
       source: 'Website',
@@ -75,7 +89,9 @@ export const DUMMY_ORDERS: Order[] = [
     },
     prepStatus: { ...DEFAULT_PREP_STATUS },
     fulfillment: { ...DEFAULT_FULFILLMENT },
+    invoiceStatus: { ...DEFAULT_INVOICE_STATUS },
     closeoutChecklist: { ...DEFAULT_CLOSEOUT },
+    artConfirmation: { ...DEFAULT_ART_CONFIRMATION },
     history: [],
     version: 1,
     isArchived: false
@@ -90,7 +106,7 @@ export const DUMMY_ORDERS: Order[] = [
     createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24),
     dueDate: '',
     lineItems: [],
-    artStatus: 'Pending',
+    artStatus: 'Not Started',
     rushOrder: false,
     leadInfo: {
       source: 'Referral',
@@ -110,7 +126,9 @@ export const DUMMY_ORDERS: Order[] = [
     },
     prepStatus: { ...DEFAULT_PREP_STATUS },
     fulfillment: { ...DEFAULT_FULFILLMENT },
+    invoiceStatus: { ...DEFAULT_INVOICE_STATUS },
     closeoutChecklist: { ...DEFAULT_CLOSEOUT },
+    artConfirmation: { ...DEFAULT_ART_CONFIRMATION },
     history: [],
     version: 1,
     isArchived: false
@@ -125,7 +143,7 @@ export const DUMMY_ORDERS: Order[] = [
     createdAt: new Date(Date.now() - 1000 * 60 * 60 * 48),
     dueDate: '',
     lineItems: [],
-    artStatus: 'Pending',
+    artStatus: 'Not Started',
     rushOrder: false,
     leadInfo: {
       source: 'Trade Show',
@@ -143,7 +161,9 @@ export const DUMMY_ORDERS: Order[] = [
     },
     prepStatus: { ...DEFAULT_PREP_STATUS },
     fulfillment: { ...DEFAULT_FULFILLMENT },
+    invoiceStatus: { ...DEFAULT_INVOICE_STATUS },
     closeoutChecklist: { ...DEFAULT_CLOSEOUT },
+    artConfirmation: { ...DEFAULT_ART_CONFIRMATION },
     history: [],
     version: 1,
     isArchived: false
@@ -159,11 +179,13 @@ export const DUMMY_ORDERS: Order[] = [
     createdAt: new Date(Date.now() - 1000 * 60 * 130),
     dueDate: '2024-02-01',
     lineItems: [],
-    artStatus: 'Pending',
+    artStatus: 'Not Started',
     rushOrder: false,
     prepStatus: { ...DEFAULT_PREP_STATUS },
     fulfillment: { ...DEFAULT_FULFILLMENT },
+    invoiceStatus: { ...DEFAULT_INVOICE_STATUS },
     closeoutChecklist: { ...DEFAULT_CLOSEOUT },
+    artConfirmation: { ...DEFAULT_ART_CONFIRMATION },
     history: [],
     version: 1,
     isArchived: false
@@ -197,11 +219,13 @@ export const DUMMY_ORDERS: Order[] = [
         isPlusSize: false
       }
     ],
-    artStatus: 'Pending',
+    artStatus: 'Not Started',
     rushOrder: false,
     prepStatus: { ...DEFAULT_PREP_STATUS },
     fulfillment: { ...DEFAULT_FULFILLMENT },
+    invoiceStatus: { ...DEFAULT_INVOICE_STATUS },
     closeoutChecklist: { ...DEFAULT_CLOSEOUT },
+    artConfirmation: { ...DEFAULT_ART_CONFIRMATION },
     history: [],
     version: 1,
     isArchived: false
@@ -235,11 +259,117 @@ export const DUMMY_ORDERS: Order[] = [
         isPlusSize: false
       }
     ],
-    artStatus: 'Pending',
+    artStatus: 'Sent to Customer',
     rushOrder: false,
     prepStatus: { ...DEFAULT_PREP_STATUS },
     fulfillment: { ...DEFAULT_FULFILLMENT },
+    invoiceStatus: { ...DEFAULT_INVOICE_STATUS },
     closeoutChecklist: { ...DEFAULT_CLOSEOUT },
+    artConfirmation: {
+      overallStatus: 'Sent to Customer',
+      placements: [
+        {
+          id: 'ap-1',
+          location: 'Front Left Chest',
+          width: '3.5"',
+          height: '3.5"',
+          colorCount: 1,
+          description: 'Summit Coffee logo - embroidered',
+          proofs: [
+            {
+              id: 'proof-1',
+              version: 1,
+              proofName: 'Logo Placement v1',
+              proofUrl: 'https://canva.com/design/example123',
+              proofNotes: 'Standard logo placement, thread colors: brown, white, gold',
+              createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24),
+              sentToCustomerAt: new Date(Date.now() - 1000 * 60 * 60 * 20),
+              status: 'Sent',
+              files: [
+                {
+                  id: 'file-1',
+                  fileName: 'summit-logo-proof-v1.png',
+                  fileType: 'proof',
+                  fileUrl: 'https://canva.com/design/example123/preview.png',
+                  uploadedAt: new Date(Date.now() - 1000 * 60 * 60 * 24),
+                  uploadedBy: 'designer',
+                  notes: 'Embroidery mockup on black apron',
+                  isMarkup: false
+                }
+              ],
+              markupFiles: []
+            }
+          ]
+        }
+      ],
+      clientFiles: [
+        {
+          id: 'client-file-1',
+          fileName: 'summit-coffee-logo.ai',
+          fileType: 'original',
+          fileUrl: 'https://drive.google.com/file/summit-logo.ai',
+          fileSize: 245000,
+          mimeType: 'application/illustrator',
+          uploadedAt: new Date(Date.now() - 1000 * 60 * 60 * 48),
+          uploadedBy: 'client',
+          notes: 'Original vector logo from client',
+          isMarkup: false
+        },
+        {
+          id: 'client-file-2',
+          fileName: 'brand-colors.pdf',
+          fileType: 'reference',
+          fileUrl: 'https://drive.google.com/file/brand-colors.pdf',
+          fileSize: 128000,
+          mimeType: 'application/pdf',
+          uploadedAt: new Date(Date.now() - 1000 * 60 * 60 * 48),
+          uploadedBy: 'client',
+          notes: 'Brand color guide - use PMS 4695 for brown',
+          isMarkup: false
+        }
+      ],
+      referenceFiles: [],
+      revisionHistory: [
+        {
+          id: 'rev-1',
+          timestamp: new Date(Date.now() - 1000 * 60 * 60 * 48),
+          action: 'file_uploaded',
+          description: 'Client uploaded original logo file',
+          performedBy: 'Client',
+          relatedFileId: 'client-file-1'
+        },
+        {
+          id: 'rev-2',
+          timestamp: new Date(Date.now() - 1000 * 60 * 60 * 36),
+          action: 'placement_added',
+          description: 'Added Front Left Chest placement',
+          performedBy: 'Designer',
+          relatedPlacementId: 'ap-1'
+        },
+        {
+          id: 'rev-3',
+          timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24),
+          action: 'proof_created',
+          description: 'Created proof v1 for Front Left Chest',
+          performedBy: 'Designer',
+          relatedProofId: 'proof-1',
+          relatedPlacementId: 'ap-1'
+        },
+        {
+          id: 'rev-4',
+          timestamp: new Date(Date.now() - 1000 * 60 * 60 * 20),
+          action: 'proof_sent',
+          description: 'Sent proof v1 to customer via email',
+          performedBy: 'Designer',
+          relatedProofId: 'proof-1'
+        }
+      ],
+      customerContactMethod: 'Email',
+      lastContactedAt: new Date(Date.now() - 1000 * 60 * 60 * 20),
+      designerNotes: 'Using their existing logo file. Clean vector provided.',
+      originalArtworkUrl: 'https://drive.google.com/file/summit-logo.ai',
+      startedAt: new Date(Date.now() - 1000 * 60 * 60 * 36)
+    },
     history: [],
     version: 1,
     isArchived: false
@@ -277,7 +407,9 @@ export const DUMMY_ORDERS: Order[] = [
     rushOrder: false,
     prepStatus: { ...DEFAULT_PREP_STATUS },
     fulfillment: { ...DEFAULT_FULFILLMENT },
+    invoiceStatus: { ...DEFAULT_INVOICE_STATUS },
     closeoutChecklist: { ...DEFAULT_CLOSEOUT },
+    artConfirmation: { ...DEFAULT_ART_CONFIRMATION },
     history: [],
     version: 1,
     isArchived: false
@@ -319,7 +451,9 @@ export const DUMMY_ORDERS: Order[] = [
       screensBurned: null
     },
     fulfillment: { ...DEFAULT_FULFILLMENT },
+    invoiceStatus: { ...DEFAULT_INVOICE_STATUS },
     closeoutChecklist: { ...DEFAULT_CLOSEOUT },
+    artConfirmation: { ...DEFAULT_ART_CONFIRMATION },
     history: [],
     version: 1,
     isArchived: false
@@ -334,11 +468,13 @@ export const DUMMY_ORDERS: Order[] = [
     createdAt: new Date(Date.now() - 1000 * 60 * 60 * 12),
     dueDate: '2024-02-15',
     lineItems: [],
-    artStatus: 'Pending',
+    artStatus: 'Not Started',
     rushOrder: false,
     prepStatus: { ...DEFAULT_PREP_STATUS },
     fulfillment: { ...DEFAULT_FULFILLMENT },
+    invoiceStatus: { ...DEFAULT_INVOICE_STATUS },
     closeoutChecklist: { ...DEFAULT_CLOSEOUT },
+    artConfirmation: { ...DEFAULT_ART_CONFIRMATION },
     history: [],
     version: 1,
     isArchived: false
@@ -390,7 +526,7 @@ export const DUMMY_ORDERS: Order[] = [
         isPlusSize: false
       }
     ],
-    artStatus: 'Pending', // Bypassed art confirmation
+    artStatus: 'Not Started', // Bypassed art confirmation
     rushOrder: false,
     prepStatus: {
       gangSheetCreated: false,
@@ -398,7 +534,9 @@ export const DUMMY_ORDERS: Order[] = [
       screensBurned: null
     },
     fulfillment: { ...DEFAULT_FULFILLMENT },
+    invoiceStatus: { ...DEFAULT_INVOICE_STATUS },
     closeoutChecklist: { ...DEFAULT_CLOSEOUT },
+    artConfirmation: { ...DEFAULT_ART_CONFIRMATION },
     history: [],
     version: 1,
     isArchived: false

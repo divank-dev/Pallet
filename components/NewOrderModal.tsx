@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { X, Target, FileText } from 'lucide-react';
 import { Order, LeadSource, LeadTemperature, ProductionMethod } from '../types';
-import { DEFAULT_PREP_STATUS, DEFAULT_FULFILLMENT, DEFAULT_CLOSEOUT, DEFAULT_LEAD_INFO } from '../constants';
+import { DEFAULT_PREP_STATUS, DEFAULT_FULFILLMENT, DEFAULT_INVOICE_STATUS, DEFAULT_CLOSEOUT, DEFAULT_LEAD_INFO, DEFAULT_ART_CONFIRMATION } from '../constants';
 
 interface NewOrderModalProps {
   onClose: () => void;
@@ -46,11 +46,13 @@ const NewOrderModal: React.FC<NewOrderModalProps> = ({ onClose, onCreate }) => {
       status: mode === 'lead' ? 'Lead' : 'Quote',
       createdAt: new Date(),
       lineItems: [],
-      artStatus: 'Pending',
+      artStatus: 'Not Started',
       rushOrder: data.rushOrder,
       prepStatus: { ...DEFAULT_PREP_STATUS },
       fulfillment: { ...DEFAULT_FULFILLMENT },
+      invoiceStatus: { ...DEFAULT_INVOICE_STATUS },
       closeoutChecklist: { ...DEFAULT_CLOSEOUT },
+      artConfirmation: { ...DEFAULT_ART_CONFIRMATION },
       history: [],
       version: 1,
       isArchived: false
