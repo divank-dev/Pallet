@@ -1,7 +1,7 @@
 # Pallet Application - Test and Update Procedures
 
-## Version: 2.0.0
-## Last Updated: 2024-01-20
+## Version: 2.1.0
+## Last Updated: 2025-01-20
 
 ---
 
@@ -28,6 +28,20 @@
 | FulfillmentStatus | Shipping/pickup tracking | method, trackingNumber, customerPickedUp |
 | InvoiceStatus | Invoice tracking | invoiceCreated, invoiceSent, paymentReceived |
 | CloseoutChecklist | Project closure tasks | filesSaved, canvaArchived, summaryUploaded |
+| User | System user account | id, username, password, displayName, role, isActive |
+| OrgHierarchy | Organization structure | users, departments, lastUpdatedAt |
+| ProductivityEntry | Production floor tracking | operatorName, itemsDecorated, itemsPacked |
+
+### User Roles & Permissions
+
+| Role | Level | Description |
+|------|-------|-------------|
+| Admin | Owner | Full access - manage users, settings, all stages |
+| Manager | Admin | Manage users (no delete), access all stages/reports |
+| Sales | Operator | Create orders, access sales stages, view reports |
+| Production | Operator | Access production stages, Production Floor dashboard |
+| Fulfillment | Operator | Access fulfillment stages and tracking |
+| ReadOnly | Operator | View-only access to all areas |
 
 ### Workflow Stages (12 Total)
 
@@ -111,6 +125,36 @@
 ---
 
 ## Testing Procedures
+
+### Authentication Tests
+
+1. **Login Page**
+   - [ ] Login page displays on unauthenticated access
+   - [ ] Default credentials work (admin/admin)
+   - [ ] Invalid credentials show error message
+   - [ ] Deactivated user cannot login
+   - [ ] Session persists after page refresh
+
+2. **Password Management**
+   - [ ] User can change their own password (requires current password)
+   - [ ] Admin can reset any user's password (no current password needed)
+   - [ ] Password validation works (min 4 chars, must match confirm)
+   - [ ] Password change success/error messages display
+
+3. **User Management (Admin Only)**
+   - [ ] Can add new users with all roles
+   - [ ] Can deactivate users (soft delete)
+   - [ ] Can import users via CSV
+   - [ ] CSV template download works
+   - [ ] Cannot delete last admin user
+
+4. **Role-Based Access Control**
+   - [ ] Sales users see only sales-related stages
+   - [ ] Production users see Production Floor
+   - [ ] Fulfillment users see Fulfillment Tracking
+   - [ ] ReadOnly users cannot edit
+   - [ ] Non-admin users cannot access Settings
+   - [ ] Sidebar items hidden based on permissions
 
 ### Quick Validation Test
 
@@ -224,6 +268,28 @@ For each test order, verify:
    - [ ] Shows order counts
    - [ ] Filter applies correctly
 
+### Data Backup & Export Tests
+
+1. **Excel System Backup**
+   - [ ] Download button works
+   - [ ] File opens in Excel
+   - [ ] README sheet has instructions
+   - [ ] Users sheet contains all users with passwords
+   - [ ] Orders sheet contains all order data
+   - [ ] LineItems sheet has all line items
+   - [ ] History sheet has audit trail
+   - [ ] ArtPlacements sheet has art data
+   - [ ] Fulfillment sheet has shipping info
+
+2. **JSON Exports**
+   - [ ] Full Database Export downloads
+   - [ ] Orders JSON downloads
+   - [ ] Schema JSON downloads
+
+3. **CSV Exports**
+   - [ ] Analytics CSV contains order summaries
+   - [ ] Line Items CSV contains all items
+
 ---
 
 ## Validation Checklist
@@ -321,6 +387,16 @@ const orders = JSON.parse(backup);
 
 ## Changelog
 
+### v2.1.0 (2025-01-20)
+- Added authentication system with login requirement
+- Added role-based access control (RBAC) with 6 user roles
+- Added user management with CSV bulk import
+- Added password management (self-service and admin reset)
+- Added comprehensive Excel backup export for disaster recovery
+- Added audit trail with user attribution on all changes
+- Updated documentation for all new features
+- Added xlsx library for Excel export
+
 ### v2.0.0 (2024-01-20)
 - Added 12-stage workflow (Lead through Closed)
 - Added art confirmation workflow with file uploads
@@ -330,7 +406,16 @@ const orders = JSON.parse(backup);
 - Added Productivity worksheet for operators
 - Added Fulfillment tracking page
 
-### Migration from v1.x
+### Migration from v2.0.x to v2.1.x
+```typescript
+// No order schema changes - only auth system added
+// Default admin user created automatically on first run
+// localStorage keys:
+// - pallet-auth: Current user session
+// - pallet-org-hierarchy: User/department data
+```
+
+### Migration from v1.x to v2.0.x
 ```typescript
 // Orders from v1.x need these fields added:
 const migrateFromV1 = (order) => ({

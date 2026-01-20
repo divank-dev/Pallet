@@ -1409,7 +1409,26 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ orders, onClose }) => {
                 </div>
 
                 <h4 className="text-slate-900 font-bold border-b border-slate-200 pb-2">1. System Overview</h4>
-                <p>Pallet 2.0 is a comprehensive production management system designed for apparel decoration businesses. The system manages orders through a 10-stage workflow from initial lead capture through final invoice and archival.</p>
+                <p>Pallet 2.0 is a comprehensive production management system designed for apparel decoration businesses. The system manages orders through a 12-stage workflow (Lead through Closed) with role-based access control, audit trail tracking, and comprehensive backup/restore capabilities.</p>
+
+                <h4 className="text-slate-900 font-bold border-b border-slate-200 pb-2 mt-8">1.1 Authentication & Access</h4>
+                <ul className="list-disc pl-6 space-y-2">
+                  <li><strong>Login Required:</strong> All users must authenticate to access the system</li>
+                  <li><strong>Default Credentials:</strong> Username: admin / Password: admin (change on first login)</li>
+                  <li><strong>Role-Based Access:</strong> Three permission levels control what users can see and do</li>
+                </ul>
+
+                <div className="bg-slate-100 rounded-lg p-4 my-4">
+                  <h5 className="font-bold text-slate-800 m-0 mb-2">User Roles:</h5>
+                  <ul className="list-disc pl-6 space-y-1 text-sm">
+                    <li><strong>Admin (Owner):</strong> Full system access - manage users, settings, all stages, delete users</li>
+                    <li><strong>Manager (Admin/IT):</strong> Manage users (except delete), access all stages and reports</li>
+                    <li><strong>Sales:</strong> Create orders, access sales stages (Lead through Paid), view reports</li>
+                    <li><strong>Production:</strong> Access production stages, Production Floor dashboard, upload art</li>
+                    <li><strong>Fulfillment:</strong> Access fulfillment stages and tracking</li>
+                    <li><strong>ReadOnly:</strong> View-only access to all areas (no editing)</li>
+                  </ul>
+                </div>
 
                 <h4 className="text-slate-900 font-bold border-b border-slate-200 pb-2 mt-8">2. Workflow Stages</h4>
 
@@ -1477,7 +1496,13 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ orders, onClose }) => {
                   <div className="bg-slate-50 rounded-lg p-4">
                     <h5 className="font-bold text-slate-800 m-0">Stage 10: Closeout</h5>
                     <p className="text-sm text-slate-600 m-0 mt-1">Project file archival: Files saved to customer folder, Canva proof archived, Order summary uploaded.</p>
-                    <p className="text-xs text-slate-500 m-0 mt-2"><strong>Final Action:</strong> Close & Archive Order</p>
+                    <p className="text-xs text-slate-500 m-0 mt-2"><strong>Gate:</strong> All closeout checklist items complete</p>
+                  </div>
+
+                  <div className="bg-slate-200 rounded-lg p-4">
+                    <h5 className="font-bold text-slate-800 m-0">Stage 11: Closed</h5>
+                    <p className="text-sm text-slate-600 m-0 mt-1">Order completed and archived. Can be reopened if needed for follow-up or corrections.</p>
+                    <p className="text-xs text-slate-500 m-0 mt-2"><strong>Options:</strong> View order history, Reopen to previous stage</p>
                   </div>
                 </div>
 
@@ -1494,8 +1519,25 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ orders, onClose }) => {
                   <li>Always complete stages in order - do not skip stages</li>
                   <li>Mark line items complete immediately when finished</li>
                   <li>Use rush order flag for time-sensitive jobs</li>
-                  <li>Export data backups weekly using the Full Database Export</li>
                   <li>Complete all closeout checklist items before archiving</li>
+                </ul>
+
+                <h4 className="text-slate-900 font-bold border-b border-slate-200 pb-2 mt-8">5. Security Best Practices</h4>
+                <ul className="list-disc pl-6 space-y-2">
+                  <li><strong>Change default password:</strong> Change the admin password immediately after first login</li>
+                  <li><strong>User management:</strong> Create individual accounts for each user - do not share credentials</li>
+                  <li><strong>Role assignment:</strong> Assign minimum necessary permissions for each user's job function</li>
+                  <li><strong>Password resets:</strong> Admins can reset any user's password in Settings → Security</li>
+                  <li><strong>Audit trail:</strong> All order changes are logged with user attribution</li>
+                </ul>
+
+                <h4 className="text-slate-900 font-bold border-b border-slate-200 pb-2 mt-8">6. Data Backup & Recovery</h4>
+                <ul className="list-disc pl-6 space-y-2">
+                  <li><strong>Weekly backups:</strong> Export System Backup (Excel) weekly from Settings → Data & Backups</li>
+                  <li><strong>Excel backup:</strong> Contains all data needed to rebuild system (orders, users, history, art data)</li>
+                  <li><strong>JSON backup:</strong> Full Database Export for programmatic restore</li>
+                  <li><strong>Store securely:</strong> Keep backups in a secure, off-site location</li>
+                  <li><strong>Test restore:</strong> Periodically verify backups can be restored successfully</li>
                 </ul>
               </div>
             </div>
@@ -1521,7 +1563,9 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ orders, onClose }) => {
                   <li><strong>Build Tool:</strong> Vite 6.x</li>
                   <li><strong>Styling:</strong> Tailwind CSS (CDN)</li>
                   <li><strong>Icons:</strong> Lucide React</li>
-                  <li><strong>State Management:</strong> React useState/useMemo hooks</li>
+                  <li><strong>State Management:</strong> React Context API + useState/useMemo hooks</li>
+                  <li><strong>Excel Export:</strong> SheetJS (xlsx library)</li>
+                  <li><strong>Authentication:</strong> Context-based auth with localStorage persistence</li>
                 </ul>
 
                 <h4 className="text-slate-900 font-bold border-b border-slate-200 pb-2 mt-8">2. Data Persistence</h4>
@@ -1534,41 +1578,66 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ orders, onClose }) => {
 
                 <h4 className="text-slate-900 font-bold border-b border-slate-200 pb-2 mt-8">3. API Integration Points</h4>
                 <div className="bg-slate-100 rounded-lg p-4 font-mono text-sm">
-                  <pre className="m-0">{`GET    /api/orders              # List orders (with filters)
+                  <pre className="m-0">{`# Authentication
+POST   /api/auth/login          # User login
+POST   /api/auth/logout         # User logout
+GET    /api/auth/me             # Current user info
+
+# User Management
+GET    /api/users               # List users (admin only)
+POST   /api/users               # Create user (admin only)
+PUT    /api/users/:id           # Update user (admin only)
+DELETE /api/users/:id           # Deactivate user (admin only)
+PUT    /api/users/:id/password  # Reset password (admin only)
+POST   /api/users/import        # CSV bulk import (admin only)
+
+# Orders
+GET    /api/orders              # List orders (with filters)
 GET    /api/orders/:id          # Get single order
 POST   /api/orders              # Create order/lead
 PUT    /api/orders/:id          # Update order
 DELETE /api/orders/:id          # Archive order
 POST   /api/orders/:id/advance  # Advance to next stage
 
+# Reports & Export
 GET    /api/customers           # List customers
 GET    /api/reports/queue       # Queue report data
 GET    /api/reports/performance # Performance analytics
-
-GET    /api/export/database     # Full database export
+GET    /api/export/database     # Full database export (JSON)
+GET    /api/export/excel        # System backup (Excel)
 GET    /api/export/orders       # Orders JSON
 GET    /api/export/analytics    # Analytics CSV
-GET    /api/export/lineitems    # Line items CSV
-GET    /api/export/schema       # Schema definition`}</pre>
+GET    /api/export/lineitems    # Line items CSV`}</pre>
                 </div>
 
                 <h4 className="text-slate-900 font-bold border-b border-slate-200 pb-2 mt-8">4. Component Structure</h4>
                 <div className="bg-slate-100 rounded-lg p-4 font-mono text-sm">
                   <pre className="m-0">{`/
-├── App.tsx                 # Main application shell
-├── types.ts                # TypeScript interfaces & schema
-├── constants.tsx           # Stage definitions, defaults
+├── App.tsx                     # Main application shell with auth
+├── types.ts                    # TypeScript interfaces & schema
+├── constants.tsx               # Stage definitions, defaults
 ├── components/
-│   ├── Sidebar.tsx         # Icon navigation bar
-│   ├── WorkflowSidebar.tsx # Stage navigation
-│   ├── OrderCard.tsx       # Order summary cards
-│   ├── OrderSlideOver.tsx  # Order detail panel (10 stages)
-│   ├── NewOrderModal.tsx   # Create lead/order form
-│   ├── CustomerSearch.tsx  # Customer search autocomplete
-│   ├── ReportsPage.tsx     # Queue & Performance reports
-│   └── SettingsPage.tsx    # Settings & documentation
-└── utils/
-    └── pricing.ts          # Price calculation logic`}</pre>
+│   ├── Sidebar.tsx             # Icon navigation bar
+│   ├── WorkflowSidebar.tsx     # Stage navigation
+│   ├── OrderCard.tsx           # Order summary cards
+│   ├── OrderSlideOver.tsx      # Order detail panel (12 stages)
+│   ├── NewOrderModal.tsx       # Create lead/order form
+│   ├── CustomerSearch.tsx      # Customer search autocomplete
+│   ├── ReportsPage.tsx         # Queue & Performance reports
+│   ├── SettingsPage.tsx        # Settings & documentation
+│   ├── LoginPage.tsx           # Authentication login page
+│   ├── FulfillmentTrackingPage.tsx  # Fulfillment tracking
+│   └── ProductionFloorPage.tsx # Production floor dashboard
+├── contexts/
+│   └── AuthContext.tsx         # Authentication provider
+├── utils/
+│   ├── pricing.ts              # Price calculation logic
+│   └── permissions.ts          # RBAC permission definitions
+└── tests/
+    ├── testOrders.ts           # Test order data
+    ├── testUtils.ts            # Validation utilities
+    ├── TestRunner.tsx          # Interactive test runner
+    └── TEST_PROCEDURES.md      # Test documentation`}</pre>
                 </div>
               </div>
             </div>

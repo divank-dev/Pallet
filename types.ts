@@ -624,6 +624,47 @@ export const SCHEMA_DEFINITION = {
         feedbackReceivedAt: { type: 'Date', required: false, description: 'When feedback received' },
         status: { type: 'ProofStatus', required: true, description: 'Proof status' }
       }
+    },
+    User: {
+      description: 'System user account for authentication and access control',
+      fields: {
+        id: { type: 'string', required: true, description: 'Unique identifier' },
+        username: { type: 'string', required: true, description: 'Login username' },
+        password: { type: 'string', required: true, description: 'User password (hashed in production)' },
+        displayName: { type: 'string', required: true, description: 'Display name shown in UI' },
+        email: { type: 'string', required: false, description: 'User email address' },
+        role: { type: 'UserRole', required: true, description: 'User role for access control' },
+        department: { type: 'string', required: false, description: 'Department assignment' },
+        reportsTo: { type: 'string', required: false, description: 'Manager user ID' },
+        isActive: { type: 'boolean', required: true, description: 'Account active status' },
+        createdAt: { type: 'Date', required: true, description: 'Account creation timestamp' },
+        lastLoginAt: { type: 'Date', required: false, description: 'Last login timestamp' }
+      }
+    },
+    OrgHierarchy: {
+      description: 'Organization hierarchy and user management',
+      fields: {
+        users: { type: 'User[]', required: true, description: 'All system users' },
+        departments: { type: 'string[]', required: true, description: 'Department list' },
+        lastUpdatedAt: { type: 'Date', required: true, description: 'Last hierarchy update' },
+        lastUpdatedBy: { type: 'string', required: false, description: 'User who last updated' }
+      }
+    },
+    ProductivityEntry: {
+      description: 'Hourly production floor productivity tracking',
+      fields: {
+        id: { type: 'string', required: true, description: 'Unique identifier' },
+        date: { type: 'string', required: true, description: 'Date in YYYY-MM-DD format' },
+        hour: { type: 'number', required: true, description: 'Hour of day (0-23)' },
+        operatorName: { type: 'string', required: true, description: 'Operator name' },
+        orderNumber: { type: 'string', required: true, description: 'Associated order number' },
+        orderId: { type: 'string', required: true, description: 'Associated order ID' },
+        decorationType: { type: 'ProductionMethod', required: true, description: 'Decoration method used' },
+        itemsDecorated: { type: 'number', required: true, description: 'Items decorated this hour' },
+        itemsPacked: { type: 'number', required: true, description: 'Items packed this hour' },
+        notes: { type: 'string', required: false, description: 'Production notes' },
+        createdAt: { type: 'Date', required: true, description: 'Entry creation timestamp' }
+      }
     }
   },
   enums: {
@@ -636,7 +677,9 @@ export const SCHEMA_DEFINITION = {
     LeadSource: ['Website', 'Referral', 'Social Media', 'Cold Call', 'Trade Show', 'Email Campaign', 'Other'],
     LeadTemperature: ['Hot', 'Warm', 'Cold'],
     StitchCountTier: ['<8k', '8k-12k', '12k+'],
-    DTFSize: ['Standard', 'Large']
+    DTFSize: ['Standard', 'Large'],
+    UserRole: ['Admin', 'Manager', 'Sales', 'Production', 'Fulfillment', 'ReadOnly'],
+    PaymentMethod: ['Cash', 'Check', 'Credit Card', 'ACH', 'Other']
   },
   workflow: {
     stages: [

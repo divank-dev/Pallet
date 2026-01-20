@@ -132,8 +132,11 @@ const NewOrderModal: React.FC<NewOrderModalProps> = ({ onClose, onCreate }) => {
               />
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Email</label>
+              <label className="block text-xs font-bold text-slate-400 uppercase mb-1">
+                Email {mode === 'quote' && '*'}
+              </label>
               <input
+                required={mode === 'quote'}
                 type="email"
                 className="w-full border border-slate-200 p-3 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
                 placeholder="contact@acme.com"
@@ -142,8 +145,11 @@ const NewOrderModal: React.FC<NewOrderModalProps> = ({ onClose, onCreate }) => {
               />
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Phone</label>
+              <label className="block text-xs font-bold text-slate-400 uppercase mb-1">
+                Phone {mode === 'quote' && '*'}
+              </label>
               <input
+                required={mode === 'quote'}
                 type="tel"
                 className="w-full border border-slate-200 p-3 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
                 placeholder="555-123-4567"
