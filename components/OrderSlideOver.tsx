@@ -2390,6 +2390,60 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
             {/* Art Info Panel */}
             <ArtInfoPanel order={order} />
 
+            {/* Artwork Input Section for Quote Stage */}
+            <div className="bg-gradient-to-br from-purple-50 to-indigo-50 border border-purple-200 rounded-xl p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <Image className="text-purple-600" size={20} />
+                <h4 className="font-bold text-purple-900">Artwork Information</h4>
+                <span className="text-xs text-purple-500 ml-auto">Optional - can be added later</span>
+              </div>
+
+              <div className="space-y-4">
+                {/* Artwork Location URL */}
+                <div>
+                  <label className="block text-sm font-medium text-purple-800 mb-1">
+                    <Link size={14} className="inline mr-1" />
+                    Artwork Location URL
+                  </label>
+                  <input
+                    type="url"
+                    value={order.artConfirmation?.originalArtworkUrl || ''}
+                    onChange={(e) => onUpdate({
+                      ...order,
+                      artConfirmation: {
+                        ...order.artConfirmation,
+                        originalArtworkUrl: e.target.value
+                      }
+                    })}
+                    placeholder="https://drive.google.com/... or Dropbox link"
+                    className="w-full px-4 py-2.5 border border-purple-200 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white placeholder:text-purple-300"
+                  />
+                  <p className="text-xs text-purple-400 mt-1">Link to customer's artwork files (Google Drive, Dropbox, etc.)</p>
+                </div>
+
+                {/* Art Notes */}
+                <div>
+                  <label className="block text-sm font-medium text-purple-800 mb-1">
+                    <MessageSquare size={14} className="inline mr-1" />
+                    Art Notes
+                  </label>
+                  <textarea
+                    value={order.artConfirmation?.designerNotes || ''}
+                    onChange={(e) => onUpdate({
+                      ...order,
+                      artConfirmation: {
+                        ...order.artConfirmation,
+                        designerNotes: e.target.value
+                      }
+                    })}
+                    placeholder="Notes about the artwork, special instructions, color requirements..."
+                    rows={3}
+                    className="w-full px-4 py-2.5 border border-purple-200 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white placeholder:text-purple-300 resize-none"
+                  />
+                </div>
+              </div>
+            </div>
+
             {/* Line Items Table */}
             <div className="border border-slate-200 rounded-xl overflow-hidden">
               <div className="overflow-x-auto">
