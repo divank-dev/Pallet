@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { X, Plus, Trash2, Check, AlertCircle, ShoppingCart, FileText, Package, Palette, Layers, Truck, Archive, ClipboardCheck, Printer, Settings, Users, Calendar, DollarSign, Phone, Mail, ThermometerSun, Target, Send, MessageSquare, Image, Link, Clock, Edit3, Eye, RefreshCw, CheckCircle2, XCircle, Upload, Download, File, FileImage, FilePlus, History, ChevronDown, ChevronUp, Paperclip, ArrowLeft, Building2 } from 'lucide-react';
 import { Order, OrderStatus, ViewMode, LineItem, ProductionMethod, STAGE_NUMBER, LeadSource, LeadTemperature, LeadInfo, ArtPlacement, ArtProof, ArtConfirmation, ArtFile, ArtRevision, ArtFileType } from '../types';
 import { calculatePrice } from '../utils/pricing';
-import { DEFAULT_LEAD_INFO, DEFAULT_ART_CONFIRMATION, ORDER_STAGES } from '../constants';
+import { DEFAULT_LEAD_INFO, DEFAULT_ART_CONFIRMATION, ORDER_STAGES, PRODUCTION_METHOD_OPTIONS, SIZE_OPTIONS, PLACEMENT_LOCATIONS } from '../constants';
 import { useAuth } from '../contexts/AuthContext';
 
 interface OrderSlideOverProps {
@@ -14,15 +14,6 @@ interface OrderSlideOverProps {
   initialShowAddItem?: boolean;
   onAddItemOpened?: () => void;
 }
-
-const DECORATION_TYPES: { value: ProductionMethod; label: string }[] = [
-  { value: 'ScreenPrint', label: 'Screen Print' },
-  { value: 'DTF', label: 'DTF (Direct to Film)' },
-  { value: 'Embroidery', label: 'Embroidery' },
-  { value: 'Other', label: 'Other' }
-];
-
-const SIZE_OPTIONS = ['XXS', 'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', 'OS'];
 
 interface ColorRow {
   id: string;
@@ -61,21 +52,6 @@ const createEmptySkuConfig = (): SkuConfig => ({
   dtfSize: '',
   colorRows: [createEmptyColorRow()]
 });
-
-// Art Placement Locations
-const PLACEMENT_LOCATIONS = [
-  'Front Left Chest',
-  'Front Center',
-  'Full Front',
-  'Back Neck',
-  'Back Center',
-  'Full Back',
-  'Left Sleeve',
-  'Right Sleeve',
-  'Left Hip',
-  'Right Hip',
-  'Other'
-];
 
 // Art Info Panel Component - Shows art status, notes and artwork files on ALL stages
 interface ArtInfoPanelProps {
@@ -3701,7 +3677,7 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
                       onChange={e => setSkuConfig({...skuConfig, decorationType: e.target.value as ProductionMethod})}
                     >
                       <option value="">-- Select Type --</option>
-                      {DECORATION_TYPES.map(type => (
+                      {PRODUCTION_METHOD_OPTIONS.map(type => (
                         <option key={type.value} value={type.value}>{type.label}</option>
                       ))}
                     </select>

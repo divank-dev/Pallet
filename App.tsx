@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Search, ChevronDown, Bell, X, LogOut } from 'lucide-react';
 import { Order, OrderStatus, ViewMode, StatusChangeLog, ProductionMethod } from './types';
-import { DUMMY_ORDERS, ORDER_STAGES } from './constants';
+import { DUMMY_ORDERS, ORDER_STAGES, PRODUCTION_METHODS, PRODUCTION_METHOD_LABELS, PRODUCTION_METHOD_COLORS } from './constants';
 import { TEST_ORDERS } from './tests/testOrders';
 import Sidebar from './components/Sidebar';
 import WorkflowSidebar from './components/WorkflowSidebar';
@@ -128,19 +128,6 @@ const AppContent: React.FC = () => {
 
   // Stages that should display orders in columns by decoration type
   const DECORATION_COLUMN_STAGES: OrderStatus[] = ['Art Confirmation', 'Inventory Order', 'Production Prep'];
-  const DECORATION_TYPES: ProductionMethod[] = ['ScreenPrint', 'DTF', 'Embroidery', 'Other'];
-  const DECORATION_LABELS: Record<ProductionMethod, string> = {
-    'ScreenPrint': 'Screen Print',
-    'DTF': 'DTF Transfer',
-    'Embroidery': 'Embroidery',
-    'Other': 'Other'
-  };
-  const DECORATION_COLORS: Record<ProductionMethod, { bg: string; border: string; text: string }> = {
-    'ScreenPrint': { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-700' },
-    'DTF': { bg: 'bg-purple-50', border: 'border-purple-200', text: 'text-purple-700' },
-    'Embroidery': { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-700' },
-    'Other': { bg: 'bg-slate-50', border: 'border-slate-200', text: 'text-slate-700' }
-  };
 
   // Get the primary decoration type for an order (based on most items or first item)
   const getOrderDecorationTypes = (order: Order): ProductionMethod[] => {
@@ -574,13 +561,13 @@ const AppContent: React.FC = () => {
 
                     {filteredOrders.length > 0 ? (
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        {DECORATION_TYPES.map(decorationType => {
+                        {PRODUCTION_METHODS.map(decorationType => {
                           const typeOrders = ordersByDecorationType[decorationType];
-                          const colors = DECORATION_COLORS[decorationType];
+                          const colors = PRODUCTION_METHOD_COLORS[decorationType];
                           return (
                             <div key={decorationType} className={`rounded-xl border-2 ${colors.border} ${colors.bg} overflow-hidden`}>
                               <div className={`px-4 py-3 border-b ${colors.border} flex items-center justify-between`}>
-                                <h3 className={`font-bold ${colors.text}`}>{DECORATION_LABELS[decorationType]}</h3>
+                                <h3 className={`font-bold ${colors.text}`}>{PRODUCTION_METHOD_LABELS[decorationType]}</h3>
                                 <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${colors.text} bg-white/60`}>
                                   {typeOrders.length}
                                 </span>

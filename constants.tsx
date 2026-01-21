@@ -1,4 +1,4 @@
-import { OrderStatus, Order, PrepStatus, FulfillmentStatus, InvoiceStatus, CloseoutChecklist, LeadInfo, ArtConfirmation } from './types';
+import { OrderStatus, Order, PrepStatus, FulfillmentStatus, InvoiceStatus, CloseoutChecklist, LeadInfo, ArtConfirmation, ProductionMethod } from './types';
 
 export const ORDER_STAGES: OrderStatus[] = [
   'Lead',
@@ -56,6 +56,48 @@ export const DEFAULT_ART_CONFIRMATION: ArtConfirmation = {
   referenceFiles: [],
   revisionHistory: []
 };
+
+// Decoration/Production Method constants
+export const PRODUCTION_METHODS: ProductionMethod[] = ['ScreenPrint', 'DTF', 'Embroidery', 'Other'];
+
+export const PRODUCTION_METHOD_LABELS: Record<ProductionMethod, string> = {
+  'ScreenPrint': 'Screen Print',
+  'DTF': 'DTF Transfer',
+  'Embroidery': 'Embroidery',
+  'Other': 'Other'
+};
+
+export const PRODUCTION_METHOD_OPTIONS: { value: ProductionMethod; label: string }[] = [
+  { value: 'ScreenPrint', label: 'Screen Print' },
+  { value: 'DTF', label: 'DTF (Direct to Film)' },
+  { value: 'Embroidery', label: 'Embroidery' },
+  { value: 'Other', label: 'Other' }
+];
+
+export const PRODUCTION_METHOD_COLORS: Record<ProductionMethod, { bg: string; border: string; text: string }> = {
+  'ScreenPrint': { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-700' },
+  'DTF': { bg: 'bg-purple-50', border: 'border-purple-200', text: 'text-purple-700' },
+  'Embroidery': { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-700' },
+  'Other': { bg: 'bg-slate-50', border: 'border-slate-200', text: 'text-slate-700' }
+};
+
+// Size options for line items
+export const SIZE_OPTIONS = ['XXS', 'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', 'OS'];
+
+// Art placement locations
+export const PLACEMENT_LOCATIONS = [
+  'Front Left Chest',
+  'Front Center',
+  'Full Front',
+  'Back Neck',
+  'Back Center',
+  'Full Back',
+  'Left Sleeve',
+  'Right Sleeve',
+  'Left Hip',
+  'Right Hip',
+  'Other'
+];
 
 export const DUMMY_ORDERS: Order[] = [
   // Sample Leads for sales funnel
