@@ -77,104 +77,147 @@ const PLACEMENT_LOCATIONS = [
   'Other'
 ];
 
-// Approved Artwork Panel Component - Shows notes and artwork files on stages after Art Confirmation
-interface ApprovedArtworkPanelProps {
+// Art Info Panel Component - Shows art status, notes and artwork files on ALL stages
+interface ArtInfoPanelProps {
   order: Order;
 }
 
-const ApprovedArtworkPanel: React.FC<ApprovedArtworkPanelProps> = ({ order }) => {
+const ArtInfoPanel: React.FC<ArtInfoPanelProps> = ({ order }) => {
   const [expanded, setExpanded] = useState(false);
 
-  // Check if artwork is approved
-  const isArtworkApproved = order.artStatus === 'Approved' ||
-    order.artConfirmation?.overallStatus === 'Approved';
-
-  if (!isArtworkApproved) return null;
-
   const artConfirmation = order.artConfirmation;
+
+  // Check if artwork is approved/complete
+  const isArtworkApproved = order.artStatus === 'Approved' ||
+    artConfirmation?.overallStatus === 'Approved';
+
+  const isArtworkPending = order.artStatus === 'Pending' ||
+    artConfirmation?.overallStatus === 'Pending' ||
+    artConfirmation?.overallStatus === 'In Progress';
+
   const hasNotes = artConfirmation?.designerNotes || artConfirmation?.internalNotes;
 
-  // Collect all approved artwork files
-  const approvedFiles: { name: string; url: string; type: string; placement?: string }[] = [];
+  // Collect all artwork/proof files
+  const artworkFiles: { name: string; url: string; type: string; placement?: string; isApproved?: boolean }[] = [];
 
-  // Add files from approved placements/proofs
+  // Add files from placements/proofs (prioritize approved, but show all)
   artConfirmation?.placements?.forEach(placement => {
     placement.proofs?.forEach(proof => {
-      if (proof.status === 'Approved' || proof.status === 'Sent') {
-        proof.files?.forEach(file => {
-          approvedFiles.push({
-            name: file.fileName,
-            url: file.fileUrl,
-            type: file.fileType,
-            placement: placement.location
-          });
+      // Add proof URL if available
+      if (proof.proofUrl) {
+        artworkFiles.push({
+          name: proof.proofName || `${placement.location} Proof v${proof.version}`,
+          url: proof.proofUrl,
+          type: 'Proof',
+          placement: placement.location,
+          isApproved: proof.status === 'Approved'
         });
       }
+      // Add files from proofs
+      proof.files?.forEach(file => {
+        artworkFiles.push({
+          name: file.fileName,
+          url: file.fileUrl,
+          type: file.fileType,
+          placement: placement.location,
+          isApproved: proof.status === 'Approved'
+        });
+      });
     });
   });
 
+  // Add mockup and original artwork URLs if available
+  if (artConfirmation?.mockupUrl) {
+    artworkFiles.push({
+      name: 'Product Mockup',
+      url: artConfirmation.mockupUrl,
+      type: 'Mockup',
+      isApproved: isArtworkApproved
+    });
+  }
+  if (artConfirmation?.originalArtworkUrl) {
+    artworkFiles.push({
+      name: 'Original Artwork',
+      url: artConfirmation.originalArtworkUrl,
+      type: 'Original',
+      isApproved: isArtworkApproved
+    });
+  }
+
   // Add client files
   artConfirmation?.clientFiles?.forEach(file => {
-    approvedFiles.push({
+    artworkFiles.push({
       name: file.fileName,
       url: file.fileUrl,
       type: 'Client File'
     });
   });
 
-  // Add mockup and original artwork URLs if available
-  if (artConfirmation?.mockupUrl) {
-    approvedFiles.push({
-      name: 'Product Mockup',
-      url: artConfirmation.mockupUrl,
-      type: 'Mockup'
-    });
-  }
-  if (artConfirmation?.originalArtworkUrl) {
-    approvedFiles.push({
-      name: 'Original Artwork',
-      url: artConfirmation.originalArtworkUrl,
-      type: 'Original'
-    });
-  }
+  const hasFiles = artworkFiles.length > 0;
+  const hasContent = hasNotes || hasFiles || artConfirmation?.customerApprovalName;
 
-  const hasFiles = approvedFiles.length > 0;
+  // Don't show panel if there's no content at all
+  if (!hasContent && !isArtworkPending) return null;
 
-  if (!hasNotes && !hasFiles) return null;
+  // Determine styling based on art status
+  const panelStyles = isArtworkApproved
+    ? { bg: 'bg-green-50', border: 'border-green-200', hoverBg: 'hover:bg-green-100', iconColor: 'text-green-600', titleColor: 'text-green-800', badgeBg: 'bg-green-200', badgeText: 'text-green-700' }
+    : { bg: 'bg-amber-50', border: 'border-amber-200', hoverBg: 'hover:bg-amber-100', iconColor: 'text-amber-600', titleColor: 'text-amber-800', badgeBg: 'bg-amber-200', badgeText: 'text-amber-700' };
 
   return (
-    <div className="bg-green-50 border border-green-200 rounded-xl overflow-hidden">
+    <div className={`${panelStyles.bg} border ${panelStyles.border} rounded-xl overflow-hidden`}>
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full px-4 py-3 flex items-center justify-between hover:bg-green-100 transition-colors"
+        className={`w-full px-4 py-3 flex items-center justify-between ${panelStyles.hoverBg} transition-colors`}
       >
         <div className="flex items-center gap-2">
-          <CheckCircle2 size={18} className="text-green-600" />
-          <span className="font-bold text-green-800">Approved Artwork & Notes</span>
-          {approvedFiles.length > 0 && (
-            <span className="px-2 py-0.5 bg-green-200 text-green-700 text-xs font-bold rounded-full">
-              {approvedFiles.length} file{approvedFiles.length !== 1 ? 's' : ''}
+          {isArtworkApproved ? (
+            <CheckCircle2 size={18} className={panelStyles.iconColor} />
+          ) : (
+            <AlertCircle size={18} className={panelStyles.iconColor} />
+          )}
+          <span className={`font-bold ${panelStyles.titleColor}`}>
+            {isArtworkApproved ? 'Artwork & Notes' : 'Artwork & Notes (Art Not Complete)'}
+          </span>
+          {!isArtworkApproved && (
+            <span className={`px-2 py-0.5 ${panelStyles.badgeBg} ${panelStyles.badgeText} text-xs font-bold rounded-full`}>
+              {order.artStatus || artConfirmation?.overallStatus || 'Pending'}
+            </span>
+          )}
+          {artworkFiles.length > 0 && (
+            <span className={`px-2 py-0.5 ${panelStyles.badgeBg} ${panelStyles.badgeText} text-xs font-bold rounded-full`}>
+              {artworkFiles.length} file{artworkFiles.length !== 1 ? 's' : ''}
             </span>
           )}
         </div>
-        {expanded ? <ChevronUp size={18} className="text-green-600" /> : <ChevronDown size={18} className="text-green-600" />}
+        {expanded ? <ChevronUp size={18} className={panelStyles.iconColor} /> : <ChevronDown size={18} className={panelStyles.iconColor} />}
       </button>
 
       {expanded && (
         <div className="px-4 pb-4 space-y-4">
+          {/* Art Status Warning */}
+          {!isArtworkApproved && (
+            <div className="bg-amber-100 border border-amber-300 rounded-lg p-3">
+              <p className="text-sm text-amber-800 font-medium flex items-center gap-2">
+                <AlertCircle size={16} />
+                Art is not complete - Status: {order.artStatus || artConfirmation?.overallStatus || 'Not Started'}
+              </p>
+            </div>
+          )}
+
           {/* Notes Section */}
           {hasNotes && (
             <div className="space-y-3">
               {artConfirmation?.designerNotes && (
-                <div className="bg-white rounded-lg p-3 border border-green-100">
+                <div className={`bg-white rounded-lg p-3 border ${isArtworkApproved ? 'border-green-100' : 'border-amber-100'}`}>
                   <p className="text-xs font-bold text-slate-500 uppercase mb-1">Designer Notes</p>
-                  <p className="text-sm text-slate-700">{artConfirmation.designerNotes}</p>
+                  <p className="text-sm text-slate-700 whitespace-pre-wrap">{artConfirmation.designerNotes}</p>
                 </div>
               )}
               {artConfirmation?.internalNotes && (
-                <div className="bg-white rounded-lg p-3 border border-green-100">
+                <div className={`bg-white rounded-lg p-3 border ${isArtworkApproved ? 'border-green-100' : 'border-amber-100'}`}>
                   <p className="text-xs font-bold text-slate-500 uppercase mb-1">Internal Notes</p>
-                  <p className="text-sm text-slate-700">{artConfirmation.internalNotes}</p>
+                  <p className="text-sm text-slate-700 whitespace-pre-wrap">{artConfirmation.internalNotes}</p>
                 </div>
               )}
             </div>
@@ -182,7 +225,7 @@ const ApprovedArtworkPanel: React.FC<ApprovedArtworkPanelProps> = ({ order }) =>
 
           {/* Approval Info */}
           {artConfirmation?.customerApprovalName && (
-            <div className="bg-white rounded-lg p-3 border border-green-100">
+            <div className={`bg-white rounded-lg p-3 border ${isArtworkApproved ? 'border-green-100' : 'border-amber-100'}`}>
               <p className="text-xs font-bold text-slate-500 uppercase mb-1">Approval Details</p>
               <p className="text-sm text-slate-700">
                 Approved by <span className="font-bold">{artConfirmation.customerApprovalName}</span>
@@ -199,27 +242,32 @@ const ApprovedArtworkPanel: React.FC<ApprovedArtworkPanelProps> = ({ order }) =>
           {/* Artwork Files Section */}
           {hasFiles && (
             <div>
-              <p className="text-xs font-bold text-slate-500 uppercase mb-2">Artwork Files</p>
+              <p className="text-xs font-bold text-slate-500 uppercase mb-2">Artwork & Proof Files</p>
               <div className="space-y-2">
-                {approvedFiles.map((file, index) => (
+                {artworkFiles.map((file, index) => (
                   <a
                     key={index}
                     href={file.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center justify-between p-3 bg-white rounded-lg border border-green-100 hover:bg-green-50 hover:border-green-300 transition-colors group"
+                    className={`flex items-center justify-between p-3 bg-white rounded-lg border ${
+                      isArtworkApproved ? 'border-green-100 hover:bg-green-50 hover:border-green-300' : 'border-amber-100 hover:bg-amber-50 hover:border-amber-300'
+                    } transition-colors group`}
                   >
                     <div className="flex items-center gap-3">
-                      <FileImage size={18} className="text-green-600" />
+                      <FileImage size={18} className={isArtworkApproved ? 'text-green-600' : 'text-amber-600'} />
                       <div>
-                        <p className="text-sm font-medium text-slate-800 group-hover:text-green-700">{file.name}</p>
+                        <p className={`text-sm font-medium text-slate-800 ${isArtworkApproved ? 'group-hover:text-green-700' : 'group-hover:text-amber-700'}`}>
+                          {file.name}
+                          {file.isApproved && <span className="ml-2 text-xs text-green-600 font-bold">✓ Approved</span>}
+                        </p>
                         <p className="text-xs text-slate-500">
                           {file.type}
                           {file.placement && <span> • {file.placement}</span>}
                         </p>
                       </div>
                     </div>
-                    <Download size={16} className="text-slate-400 group-hover:text-green-600" />
+                    <Download size={16} className={`text-slate-400 ${isArtworkApproved ? 'group-hover:text-green-600' : 'group-hover:text-amber-600'}`} />
                   </a>
                 ))}
               </div>
@@ -1467,6 +1515,9 @@ const ClosedOrderPanel: React.FC<ClosedOrderPanelProps> = ({ order, onUpdate }) 
         </div>
       </div>
 
+      {/* Art Info Panel */}
+      <ArtInfoPanel order={order} />
+
       {/* Order Summary Card */}
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
         <div className="bg-slate-50 px-4 py-3 border-b border-slate-200">
@@ -1632,6 +1683,19 @@ interface CompanySettings {
 }
 
 const COMPANY_SETTINGS_KEY = 'pallet-company-settings';
+const VENDORS_KEY = 'pallet-vendors';
+
+// Vendor interface (must match SettingsPage)
+interface Vendor {
+  id: string;
+  name: string;
+  accountNumber: string;
+  contactName?: string;
+  phone?: string;
+  email?: string;
+  website?: string;
+  notes?: string;
+}
 
 const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClose, onUpdate, onDeleteQuote, initialShowAddItem, onAddItemOpened }) => {
   const { permissions } = useAuth();
@@ -1651,6 +1715,26 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
       }
     }
     return { companyName: '', contactName: '', email: '', phone: '', address: '', city: '', state: '', zip: '', accountNumber: '', taxId: '', notes: '' };
+  };
+
+  // Load vendors from localStorage
+  const getVendors = (): Vendor[] => {
+    const saved = localStorage.getItem(VENDORS_KEY);
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  };
+
+  // Get selected vendor details
+  const getSelectedVendor = (): Vendor | null => {
+    if (!order.selectedVendorId) return null;
+    const vendors = getVendors();
+    return vendors.find(v => v.id === order.selectedVendorId) || null;
   };
 
   // Notify parent that Add Item was opened (to reset the flag)
@@ -2316,6 +2400,9 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
               </div>
             </div>
 
+            {/* Art Info Panel */}
+            <ArtInfoPanel order={order} />
+
             {/* Line Items Table */}
             <div className="border border-slate-200 rounded-xl overflow-hidden">
               <div className="overflow-x-auto">
@@ -2515,6 +2602,9 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
                 </button>
               </div>
             </div>
+
+            {/* Art Info Panel */}
+            <ArtInfoPanel order={order} />
           </div>
         )}
 
@@ -2527,7 +2617,61 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
         {order.status === 'Inventory Order' && (
           <div className="space-y-6">
             {/* Approved Artwork Panel */}
-            <ApprovedArtworkPanel order={order} />
+            <ArtInfoPanel order={order} />
+
+            {/* Vendor Selection Section */}
+            {(() => {
+              const vendors = getVendors();
+              const selectedVendor = getSelectedVendor();
+              return (
+                <div className="bg-purple-50 border border-purple-200 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Truck size={18} className="text-purple-600" />
+                    <h4 className="font-bold text-purple-800">Select Vendor</h4>
+                  </div>
+                  {vendors.length === 0 ? (
+                    <p className="text-purple-600 text-sm">
+                      No vendors configured. Add vendors in Settings → Company Info.
+                    </p>
+                  ) : (
+                    <div className="space-y-3">
+                      <select
+                        value={order.selectedVendorId || ''}
+                        onChange={(e) => onUpdate({
+                          ...order,
+                          selectedVendorId: e.target.value || undefined
+                        })}
+                        className="w-full border border-purple-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-purple-500 outline-none bg-white"
+                      >
+                        <option value="">-- Select a vendor --</option>
+                        {vendors.map(vendor => (
+                          <option key={vendor.id} value={vendor.id}>
+                            {vendor.name} (Acct: {vendor.accountNumber})
+                          </option>
+                        ))}
+                      </select>
+                      {selectedVendor && (
+                        <div className="bg-white rounded-lg p-3 border border-purple-100">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="font-bold text-purple-900">{selectedVendor.name}</p>
+                              <p className="text-sm text-purple-700">Account: <span className="font-mono font-bold">{selectedVendor.accountNumber}</span></p>
+                            </div>
+                          </div>
+                          {(selectedVendor.contactName || selectedVendor.phone || selectedVendor.email) && (
+                            <div className="mt-2 pt-2 border-t border-purple-100 text-sm text-purple-600">
+                              {selectedVendor.contactName && <span>{selectedVendor.contactName}</span>}
+                              {selectedVendor.phone && <span> • {selectedVendor.phone}</span>}
+                              {selectedVendor.email && <span> • {selectedVendor.email}</span>}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* PO Numbers Section */}
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
@@ -2645,7 +2789,7 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
         {order.status === 'Production Prep' && (
           <div className="space-y-6">
             {/* Approved Artwork Panel */}
-            <ApprovedArtworkPanel order={order} />
+            <ArtInfoPanel order={order} />
 
             <div className="flex items-center gap-3">
               <Settings className="text-blue-600" size={24} />
@@ -2758,7 +2902,7 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
         {order.status === 'Inventory Received' && (
           <div className="space-y-6">
             {/* Approved Artwork Panel */}
-            <ApprovedArtworkPanel order={order} />
+            <ArtInfoPanel order={order} />
 
             <div className="flex justify-between items-center">
               <h3 className="text-lg font-bold flex items-center gap-2">
@@ -2818,7 +2962,7 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
         {order.status === 'Production' && (
           <div className="space-y-6">
             {/* Approved Artwork Panel */}
-            <ApprovedArtworkPanel order={order} />
+            <ArtInfoPanel order={order} />
 
             <div className="flex justify-between items-center">
               <h3 className="text-lg font-bold flex items-center gap-2">
@@ -2907,7 +3051,7 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
         {order.status === 'Fulfillment' && (
           <div className="space-y-6">
             {/* Approved Artwork Panel */}
-            <ApprovedArtworkPanel order={order} />
+            <ArtInfoPanel order={order} />
 
             <div className="flex items-center gap-3">
               <Truck className="text-blue-600" size={24} />
@@ -2997,7 +3141,7 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
         {order.status === 'Invoice' && (
           <div className="space-y-6">
             {/* Approved Artwork Panel */}
-            <ApprovedArtworkPanel order={order} />
+            <ArtInfoPanel order={order} />
 
             <div className="flex items-center gap-3">
               <DollarSign className="text-green-600" size={24} />
@@ -3183,7 +3327,7 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
         {order.status === 'Closeout' && (
           <div className="space-y-6">
             {/* Approved Artwork Panel */}
-            <ApprovedArtworkPanel order={order} />
+            <ArtInfoPanel order={order} />
 
             <div className="flex items-center gap-3">
               <Archive className="text-purple-600" size={24} />
@@ -3328,6 +3472,9 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
             <div className="flex-1 overflow-y-auto p-8" id="purchase-order-content">
               {(() => {
                 const company = getCompanySettings();
+                const selectedVendor = getSelectedVendor();
+                // Use selected vendor's account number, fallback to company account number
+                const accountNumber = selectedVendor?.accountNumber || company.accountNumber;
                 return (
                   <div className="space-y-6 max-w-3xl mx-auto">
                     {/* Header */}
@@ -3335,6 +3482,17 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
                       <h1 className="text-2xl font-black text-slate-900">{company.companyName || 'Your Company Name'}</h1>
                       <p className="text-slate-600">PURCHASE ORDER</p>
                     </div>
+
+                    {/* Vendor Info Banner */}
+                    {selectedVendor && (
+                      <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                        <p className="text-xs font-bold text-purple-600 uppercase">Ordering From</p>
+                        <p className="font-bold text-purple-900">{selectedVendor.name}</p>
+                        {selectedVendor.contactName && <p className="text-sm text-purple-700">Contact: {selectedVendor.contactName}</p>}
+                        {selectedVendor.phone && <p className="text-sm text-purple-700">Phone: {selectedVendor.phone}</p>}
+                        {selectedVendor.email && <p className="text-sm text-purple-700">Email: {selectedVendor.email}</p>}
+                      </div>
+                    )}
 
                     {/* Company & Order Info */}
                     <div className="grid grid-cols-2 gap-8">
@@ -3357,10 +3515,12 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
                           <p className="text-lg font-bold text-slate-900">{order.poNumbers?.primary || order.orderNumber}</p>
                           <p className="text-xs font-bold text-slate-500 uppercase mt-2">Date</p>
                           <p className="text-sm text-slate-700">{new Date().toLocaleDateString()}</p>
-                          {company.accountNumber && (
+                          {accountNumber && (
                             <>
-                              <p className="text-xs font-bold text-slate-500 uppercase mt-2">Account #</p>
-                              <p className="text-sm text-slate-700">{company.accountNumber}</p>
+                              <p className="text-xs font-bold text-slate-500 uppercase mt-2">
+                                {selectedVendor ? `${selectedVendor.name} Account #` : 'Account #'}
+                              </p>
+                              <p className="text-sm font-bold text-slate-900">{accountNumber}</p>
                             </>
                           )}
                           {order.dueDate && (

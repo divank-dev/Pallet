@@ -320,6 +320,9 @@ export interface Order {
     tertiary?: string;     // Tertiary PO
   };
 
+  // Selected vendor for inventory orders
+  selectedVendorId?: string;
+
   // Line items
   lineItems: LineItem[];
 

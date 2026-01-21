@@ -33,7 +33,21 @@ interface CompanySettings {
   notes: string;
 }
 
+// Vendor interface
+export interface Vendor {
+  id: string;
+  name: string;
+  accountNumber: string;
+  contactName?: string;
+  phone?: string;
+  email?: string;
+  website?: string;
+  notes?: string;
+}
+
 const COMPANY_SETTINGS_KEY = 'pallet-company-settings';
+const VENDORS_KEY = 'pallet-vendors';
+const MAX_VENDORS = 20;
 
 const DEFAULT_COMPANY_SETTINGS: CompanySettings = {
   companyName: '',
@@ -102,11 +116,70 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ orders, onClose, onDeleteOr
   });
   const [companySaveSuccess, setCompanySaveSuccess] = useState(false);
 
+  // Vendor management state
+  const [vendors, setVendors] = useState<Vendor[]>(() => {
+    const saved = localStorage.getItem(VENDORS_KEY);
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  });
+  const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
+  const [showAddVendor, setShowAddVendor] = useState(false);
+  const [newVendor, setNewVendor] = useState<Omit<Vendor, 'id'>>({
+    name: '',
+    accountNumber: '',
+    contactName: '',
+    phone: '',
+    email: '',
+    website: '',
+    notes: ''
+  });
+  const [vendorSaveSuccess, setVendorSaveSuccess] = useState(false);
+
   // Save company settings to localStorage
   const saveCompanySettings = () => {
     localStorage.setItem(COMPANY_SETTINGS_KEY, JSON.stringify(companySettings));
     setCompanySaveSuccess(true);
     setTimeout(() => setCompanySaveSuccess(false), 3000);
+  };
+
+  // Vendor management functions
+  const saveVendors = (updatedVendors: Vendor[]) => {
+    localStorage.setItem(VENDORS_KEY, JSON.stringify(updatedVendors));
+    setVendors(updatedVendors);
+    setVendorSaveSuccess(true);
+    setTimeout(() => setVendorSaveSuccess(false), 3000);
+  };
+
+  const addVendor = () => {
+    if (!newVendor.name || !newVendor.accountNumber) return;
+    if (vendors.length >= MAX_VENDORS) return;
+
+    const vendor: Vendor = {
+      ...newVendor,
+      id: `vendor-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    };
+
+    saveVendors([...vendors, vendor]);
+    setNewVendor({ name: '', accountNumber: '', contactName: '', phone: '', email: '', website: '', notes: '' });
+    setShowAddVendor(false);
+  };
+
+  const updateVendor = () => {
+    if (!editingVendor) return;
+    const updatedVendors = vendors.map(v => v.id === editingVendor.id ? editingVendor : v);
+    saveVendors(updatedVendors);
+    setEditingVendor(null);
+  };
+
+  const deleteVendor = (vendorId: string) => {
+    const updatedVendors = vendors.filter(v => v.id !== vendorId);
+    saveVendors(updatedVendors);
   };
 
   // Handle admin resetting any user's password
@@ -844,6 +917,284 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ orders, onClose, onDeleteOr
               >
                 Save Company Settings
               </button>
+
+              {/* Vendor Management Section */}
+              <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-6 mt-8">
+                <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+                  <div className="flex items-center gap-3">
+                    <Truck className="text-purple-600" size={24} />
+                    <div>
+                      <h4 className="text-lg font-bold text-slate-900">Vendor Management</h4>
+                      <p className="text-slate-500 text-sm">Add vendors with account numbers for purchase orders ({vendors.length}/{MAX_VENDORS})</p>
+                    </div>
+                  </div>
+                  {vendors.length < MAX_VENDORS && (
+                    <button
+                      onClick={() => setShowAddVendor(true)}
+                      className="px-4 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 flex items-center gap-2"
+                    >
+                      <UserPlus size={16} /> Add Vendor
+                    </button>
+                  )}
+                </div>
+
+                {vendorSaveSuccess && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-3 flex items-center gap-2">
+                    <CheckCircle className="text-green-600" size={16} />
+                    <p className="text-green-800 font-medium text-sm">Vendor saved successfully!</p>
+                  </div>
+                )}
+
+                {/* Vendor List */}
+                {vendors.length === 0 ? (
+                  <div className="text-center py-8 text-slate-400">
+                    <Truck size={32} className="mx-auto mb-2 opacity-50" />
+                    <p>No vendors added yet</p>
+                    <p className="text-sm">Add vendors to use them on purchase orders</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {vendors.map(vendor => (
+                      <div key={vendor.id} className="border border-slate-200 rounded-lg p-4 hover:border-purple-300 transition-colors">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3">
+                              <h5 className="font-bold text-slate-900">{vendor.name}</h5>
+                              <span className="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs font-bold rounded-full">
+                                Acct: {vendor.accountNumber}
+                              </span>
+                            </div>
+                            <div className="mt-1 text-sm text-slate-500 space-x-4">
+                              {vendor.contactName && <span>{vendor.contactName}</span>}
+                              {vendor.phone && <span>• {vendor.phone}</span>}
+                              {vendor.email && <span>• {vendor.email}</span>}
+                            </div>
+                            {vendor.notes && (
+                              <p className="mt-2 text-sm text-slate-600 italic">{vendor.notes}</p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => setEditingVendor(vendor)}
+                              className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            >
+                              <Edit2 size={16} />
+                            </button>
+                            <button
+                              onClick={() => deleteVendor(vendor.id)}
+                              className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Add Vendor Modal */}
+                {showAddVendor && (
+                  <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
+                    <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden">
+                      <div className="p-6 border-b border-slate-100">
+                        <h3 className="text-xl font-bold text-slate-900">Add New Vendor</h3>
+                        <p className="text-slate-500 text-sm">Enter vendor details and account number</p>
+                      </div>
+                      <div className="p-6 space-y-4">
+                        <div>
+                          <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Vendor Name *</label>
+                          <input
+                            type="text"
+                            value={newVendor.name}
+                            onChange={(e) => setNewVendor({ ...newVendor, name: e.target.value })}
+                            className="w-full border border-slate-200 rounded-lg px-4 py-3 focus:ring-2 focus:ring-purple-500 outline-none"
+                            placeholder="e.g., SanMar, Alpha Broder, S&S Activewear"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Account Number *</label>
+                          <input
+                            type="text"
+                            value={newVendor.accountNumber}
+                            onChange={(e) => setNewVendor({ ...newVendor, accountNumber: e.target.value })}
+                            className="w-full border border-slate-200 rounded-lg px-4 py-3 focus:ring-2 focus:ring-purple-500 outline-none"
+                            placeholder="Your account number with this vendor"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Contact Name</label>
+                            <input
+                              type="text"
+                              value={newVendor.contactName}
+                              onChange={(e) => setNewVendor({ ...newVendor, contactName: e.target.value })}
+                              className="w-full border border-slate-200 rounded-lg px-4 py-3 focus:ring-2 focus:ring-purple-500 outline-none"
+                              placeholder="Rep name"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Phone</label>
+                            <input
+                              type="tel"
+                              value={newVendor.phone}
+                              onChange={(e) => setNewVendor({ ...newVendor, phone: e.target.value })}
+                              className="w-full border border-slate-200 rounded-lg px-4 py-3 focus:ring-2 focus:ring-purple-500 outline-none"
+                              placeholder="555-123-4567"
+                            />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Email</label>
+                            <input
+                              type="email"
+                              value={newVendor.email}
+                              onChange={(e) => setNewVendor({ ...newVendor, email: e.target.value })}
+                              className="w-full border border-slate-200 rounded-lg px-4 py-3 focus:ring-2 focus:ring-purple-500 outline-none"
+                              placeholder="orders@vendor.com"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Website</label>
+                            <input
+                              type="text"
+                              value={newVendor.website}
+                              onChange={(e) => setNewVendor({ ...newVendor, website: e.target.value })}
+                              className="w-full border border-slate-200 rounded-lg px-4 py-3 focus:ring-2 focus:ring-purple-500 outline-none"
+                              placeholder="www.vendor.com"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Notes</label>
+                          <textarea
+                            rows={2}
+                            value={newVendor.notes}
+                            onChange={(e) => setNewVendor({ ...newVendor, notes: e.target.value })}
+                            className="w-full border border-slate-200 rounded-lg px-4 py-3 focus:ring-2 focus:ring-purple-500 outline-none resize-none"
+                            placeholder="Special instructions, minimum orders, etc."
+                          />
+                        </div>
+                      </div>
+                      <div className="p-6 border-t border-slate-100 bg-slate-50 flex gap-3">
+                        <button
+                          onClick={() => {
+                            setShowAddVendor(false);
+                            setNewVendor({ name: '', accountNumber: '', contactName: '', phone: '', email: '', website: '', notes: '' });
+                          }}
+                          className="flex-1 py-3 text-slate-600 font-bold hover:bg-slate-200 rounded-xl transition-colors"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={addVendor}
+                          disabled={!newVendor.name || !newVendor.accountNumber}
+                          className="flex-1 py-3 bg-purple-600 text-white font-bold rounded-xl hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                          Add Vendor
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Edit Vendor Modal */}
+                {editingVendor && (
+                  <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
+                    <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden">
+                      <div className="p-6 border-b border-slate-100">
+                        <h3 className="text-xl font-bold text-slate-900">Edit Vendor</h3>
+                        <p className="text-slate-500 text-sm">Update vendor details</p>
+                      </div>
+                      <div className="p-6 space-y-4">
+                        <div>
+                          <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Vendor Name *</label>
+                          <input
+                            type="text"
+                            value={editingVendor.name}
+                            onChange={(e) => setEditingVendor({ ...editingVendor, name: e.target.value })}
+                            className="w-full border border-slate-200 rounded-lg px-4 py-3 focus:ring-2 focus:ring-purple-500 outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Account Number *</label>
+                          <input
+                            type="text"
+                            value={editingVendor.accountNumber}
+                            onChange={(e) => setEditingVendor({ ...editingVendor, accountNumber: e.target.value })}
+                            className="w-full border border-slate-200 rounded-lg px-4 py-3 focus:ring-2 focus:ring-purple-500 outline-none"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Contact Name</label>
+                            <input
+                              type="text"
+                              value={editingVendor.contactName || ''}
+                              onChange={(e) => setEditingVendor({ ...editingVendor, contactName: e.target.value })}
+                              className="w-full border border-slate-200 rounded-lg px-4 py-3 focus:ring-2 focus:ring-purple-500 outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Phone</label>
+                            <input
+                              type="tel"
+                              value={editingVendor.phone || ''}
+                              onChange={(e) => setEditingVendor({ ...editingVendor, phone: e.target.value })}
+                              className="w-full border border-slate-200 rounded-lg px-4 py-3 focus:ring-2 focus:ring-purple-500 outline-none"
+                            />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Email</label>
+                            <input
+                              type="email"
+                              value={editingVendor.email || ''}
+                              onChange={(e) => setEditingVendor({ ...editingVendor, email: e.target.value })}
+                              className="w-full border border-slate-200 rounded-lg px-4 py-3 focus:ring-2 focus:ring-purple-500 outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Website</label>
+                            <input
+                              type="text"
+                              value={editingVendor.website || ''}
+                              onChange={(e) => setEditingVendor({ ...editingVendor, website: e.target.value })}
+                              className="w-full border border-slate-200 rounded-lg px-4 py-3 focus:ring-2 focus:ring-purple-500 outline-none"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Notes</label>
+                          <textarea
+                            rows={2}
+                            value={editingVendor.notes || ''}
+                            onChange={(e) => setEditingVendor({ ...editingVendor, notes: e.target.value })}
+                            className="w-full border border-slate-200 rounded-lg px-4 py-3 focus:ring-2 focus:ring-purple-500 outline-none resize-none"
+                          />
+                        </div>
+                      </div>
+                      <div className="p-6 border-t border-slate-100 bg-slate-50 flex gap-3">
+                        <button
+                          onClick={() => setEditingVendor(null)}
+                          className="flex-1 py-3 text-slate-600 font-bold hover:bg-slate-200 rounded-xl transition-colors"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={updateVendor}
+                          disabled={!editingVendor.name || !editingVendor.accountNumber}
+                          className="flex-1 py-3 bg-purple-600 text-white font-bold rounded-xl hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                          Save Changes
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
