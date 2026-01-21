@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { Search, ChevronDown, Bell, X, LogOut } from 'lucide-react';
-import { Order, OrderStatus, ViewMode, StatusChangeLog } from './types';
+import { Order, OrderStatus, ViewMode, StatusChangeLog, ProductionMethod } from './types';
 import { DUMMY_ORDERS, ORDER_STAGES } from './constants';
 import { TEST_ORDERS } from './tests/testOrders';
 import Sidebar from './components/Sidebar';
@@ -102,6 +102,56 @@ const AppContent: React.FC = () => {
       return acc;
     }, {} as Record<OrderStatus, number>);
   }, [orders]);
+
+  // Stages that should display orders in columns by decoration type
+  const DECORATION_COLUMN_STAGES: OrderStatus[] = ['Art Confirmation', 'Inventory Order', 'Production Prep'];
+  const DECORATION_TYPES: ProductionMethod[] = ['ScreenPrint', 'DTF', 'Embroidery', 'Other'];
+  const DECORATION_LABELS: Record<ProductionMethod, string> = {
+    'ScreenPrint': 'Screen Print',
+    'DTF': 'DTF Transfer',
+    'Embroidery': 'Embroidery',
+    'Other': 'Other'
+  };
+  const DECORATION_COLORS: Record<ProductionMethod, { bg: string; border: string; text: string }> = {
+    'ScreenPrint': { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-700' },
+    'DTF': { bg: 'bg-purple-50', border: 'border-purple-200', text: 'text-purple-700' },
+    'Embroidery': { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-700' },
+    'Other': { bg: 'bg-slate-50', border: 'border-slate-200', text: 'text-slate-700' }
+  };
+
+  // Get the primary decoration type for an order (based on most items or first item)
+  const getOrderDecorationTypes = (order: Order): ProductionMethod[] => {
+    if (!order.lineItems || order.lineItems.length === 0) return ['Other'];
+    const types = new Set<ProductionMethod>();
+    order.lineItems.forEach(item => {
+      if (item.decorationType) {
+        types.add(item.decorationType);
+      }
+    });
+    return types.size > 0 ? Array.from(types) : ['Other'];
+  };
+
+  // Check if current stage should show decoration type columns
+  const showDecorationColumns = !selectedCustomer && DECORATION_COLUMN_STAGES.includes(currentStage);
+
+  // Group filtered orders by decoration type (for column view)
+  const ordersByDecorationType = useMemo(() => {
+    if (!showDecorationColumns) return null;
+    const grouped: Record<ProductionMethod, Order[]> = {
+      'ScreenPrint': [],
+      'DTF': [],
+      'Embroidery': [],
+      'Other': []
+    };
+    filteredOrders.forEach(order => {
+      const types = getOrderDecorationTypes(order);
+      // Place order in each relevant decoration type column
+      types.forEach(type => {
+        grouped[type].push(order);
+      });
+    });
+    return grouped;
+  }, [filteredOrders, showDecorationColumns]);
 
   const handleUpdateOrder = (updated: Order) => {
     // Find the original order to compare
@@ -326,6 +376,56 @@ const AppContent: React.FC = () => {
                       </div>
                     )}
                   </div>
+                ) : showDecorationColumns && ordersByDecorationType ? (
+                  // Decoration type column view for Art Confirmation, Inventory Order, Production Prep
+                  <>
+                    <div className="flex items-center justify-between mb-6">
+                      <div>
+                        <h2 className="text-2xl font-black text-slate-900 mb-1">{currentStage}</h2>
+                        <p className="text-slate-500 text-sm">Managing {filteredOrders.length} orders by decoration type</p>
+                      </div>
+                    </div>
+
+                    {filteredOrders.length > 0 ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        {DECORATION_TYPES.map(decorationType => {
+                          const typeOrders = ordersByDecorationType[decorationType];
+                          const colors = DECORATION_COLORS[decorationType];
+                          return (
+                            <div key={decorationType} className={`rounded-xl border-2 ${colors.border} ${colors.bg} overflow-hidden`}>
+                              <div className={`px-4 py-3 border-b ${colors.border} flex items-center justify-between`}>
+                                <h3 className={`font-bold ${colors.text}`}>{DECORATION_LABELS[decorationType]}</h3>
+                                <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${colors.text} bg-white/60`}>
+                                  {typeOrders.length}
+                                </span>
+                              </div>
+                              <div className="p-3 space-y-3 max-h-[calc(100vh-320px)] overflow-y-auto">
+                                {typeOrders.length > 0 ? (
+                                  typeOrders.map(order => (
+                                    <OrderCard
+                                      key={`${decorationType}-${order.id}`}
+                                      order={order}
+                                      viewMode={viewMode}
+                                      onClick={setSelectedOrder}
+                                    />
+                                  ))
+                                ) : (
+                                  <div className="text-center py-8 text-slate-400">
+                                    <p className="text-sm font-medium">No orders</p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center h-64 bg-white border-2 border-dashed border-slate-200 rounded-2xl text-slate-400">
+                        <Search size={48} strokeWidth={1} className="mb-4" />
+                        <p className="font-medium">No orders found in {currentStage}</p>
+                      </div>
+                    )}
+                  </>
                 ) : (
                   // Normal stage-based view
                   <>

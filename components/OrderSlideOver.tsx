@@ -1,8 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { X, Plus, Trash2, Check, AlertCircle, ShoppingCart, FileText, Package, Palette, Layers, Truck, Archive, ClipboardCheck, Printer, Settings, Users, Calendar, DollarSign, Phone, Mail, ThermometerSun, Target, Send, MessageSquare, Image, Link, Clock, Edit3, Eye, RefreshCw, CheckCircle2, XCircle, Upload, Download, File, FileImage, FilePlus, History, ChevronDown, ChevronUp, Paperclip } from 'lucide-react';
+import { X, Plus, Trash2, Check, AlertCircle, ShoppingCart, FileText, Package, Palette, Layers, Truck, Archive, ClipboardCheck, Printer, Settings, Users, Calendar, DollarSign, Phone, Mail, ThermometerSun, Target, Send, MessageSquare, Image, Link, Clock, Edit3, Eye, RefreshCw, CheckCircle2, XCircle, Upload, Download, File, FileImage, FilePlus, History, ChevronDown, ChevronUp, Paperclip, ArrowLeft } from 'lucide-react';
 import { Order, OrderStatus, ViewMode, LineItem, ProductionMethod, STAGE_NUMBER, LeadSource, LeadTemperature, LeadInfo, ArtPlacement, ArtProof, ArtConfirmation, ArtFile, ArtRevision, ArtFileType } from '../types';
 import { calculatePrice } from '../utils/pricing';
-import { DEFAULT_LEAD_INFO, DEFAULT_ART_CONFIRMATION } from '../constants';
+import { DEFAULT_LEAD_INFO, DEFAULT_ART_CONFIRMATION, ORDER_STAGES } from '../constants';
 import { useAuth } from '../contexts/AuthContext';
 
 interface OrderSlideOverProps {
@@ -1686,6 +1686,26 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
     onUpdate({ ...order, status: nextStatus, updatedAt: new Date(), ...updates });
   };
 
+  // Move to previous stage
+  const movePrevious = () => {
+    const currentIndex = ORDER_STAGES.indexOf(order.status as OrderStatus);
+    if (currentIndex > 0) {
+      const previousStage = ORDER_STAGES[currentIndex - 1];
+      onUpdate({ ...order, status: previousStage, updatedAt: new Date() });
+    }
+  };
+
+  // Get the previous stage name for display
+  const getPreviousStageName = (): string | null => {
+    const currentIndex = ORDER_STAGES.indexOf(order.status as OrderStatus);
+    if (currentIndex > 0) {
+      return ORDER_STAGES[currentIndex - 1];
+    }
+    return null;
+  };
+
+  const previousStage = getPreviousStageName();
+
   // Gatekeepers
   const allOrdered = (order.lineItems?.length || 0) > 0 && order.lineItems?.every(li => li.ordered);
   const allReceived = (order.lineItems?.length || 0) > 0 && order.lineItems?.every(li => li.received);
@@ -2106,13 +2126,23 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
               <Plus size={20} /> Add Line Item
             </button>
 
-            <button
-              disabled={(order.lineItems?.length || 0) === 0}
-              onClick={() => moveNext('Approval')}
-              className="w-full bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed text-white py-4 rounded-xl font-bold hover:bg-green-700 transition-colors shadow-lg shadow-green-500/20"
-            >
-              Submit Quote for Approval
-            </button>
+            <div className="flex gap-3">
+              {previousStage && (
+                <button
+                  onClick={movePrevious}
+                  className="flex items-center gap-2 px-4 py-4 border-2 border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-100 transition-colors"
+                >
+                  <ArrowLeft size={18} /> Back to {previousStage}
+                </button>
+              )}
+              <button
+                disabled={(order.lineItems?.length || 0) === 0}
+                onClick={() => moveNext('Approval')}
+                className="flex-1 bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed text-white py-4 rounded-xl font-bold hover:bg-green-700 transition-colors shadow-lg shadow-green-500/20"
+              >
+                Submit Quote for Approval
+              </button>
+            </div>
           </div>
         )}
 
@@ -2123,12 +2153,22 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
               <h3 className="text-blue-900 font-bold text-lg mb-2">Quote Pending Approval</h3>
               <p className="text-blue-700 mb-2">Grand Total: <span className="font-bold">${grandTotal.toFixed(2)}</span></p>
               <p className="text-blue-600 text-sm mb-6">{order.lineItems?.length || 0} line items</p>
-              <button
-                onClick={() => moveNext('Art Confirmation')}
-                className="bg-blue-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-blue-700 transition-all shadow-md"
-              >
-                Quote Approved - Continue
-              </button>
+              <div className="flex gap-3 justify-center">
+                {previousStage && (
+                  <button
+                    onClick={movePrevious}
+                    className="flex items-center gap-2 px-4 py-3 border-2 border-blue-200 text-blue-600 rounded-xl font-bold hover:bg-blue-100 transition-colors"
+                  >
+                    <ArrowLeft size={18} /> Back to {previousStage}
+                  </button>
+                )}
+                <button
+                  onClick={() => moveNext('Art Confirmation')}
+                  className="bg-blue-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-blue-700 transition-all shadow-md"
+                >
+                  Quote Approved - Continue
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -2173,15 +2213,25 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
               ))}
             </div>
 
-            <button
-              disabled={!allOrdered}
-              onClick={() => moveNext('Production Prep')}
-              className={`w-full py-4 rounded-xl font-bold transition-all ${
-                allOrdered ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-slate-100 text-slate-400 cursor-not-allowed'
-              }`}
-            >
-              Move to Prep
-            </button>
+            <div className="flex gap-3">
+              {previousStage && (
+                <button
+                  onClick={movePrevious}
+                  className="flex items-center gap-2 px-4 py-4 border-2 border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-100 transition-colors"
+                >
+                  <ArrowLeft size={18} /> Back
+                </button>
+              )}
+              <button
+                disabled={!allOrdered}
+                onClick={() => moveNext('Production Prep')}
+                className={`flex-1 py-4 rounded-xl font-bold transition-all ${
+                  allOrdered ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                }`}
+              >
+                Move to Prep
+              </button>
+            </div>
           </div>
         )}
 
@@ -2273,15 +2323,25 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
               )}
             </div>
 
-            <button
-              disabled={!allPrepComplete}
-              onClick={() => moveNext('Inventory Received')}
-              className={`w-full py-4 rounded-xl font-bold transition-all ${
-                allPrepComplete ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-slate-100 text-slate-400 cursor-not-allowed'
-              }`}
-            >
-              Prep Complete
-            </button>
+            <div className="flex gap-3">
+              {previousStage && (
+                <button
+                  onClick={movePrevious}
+                  className="flex items-center gap-2 px-4 py-4 border-2 border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-100 transition-colors"
+                >
+                  <ArrowLeft size={18} /> Back
+                </button>
+              )}
+              <button
+                disabled={!allPrepComplete}
+                onClick={() => moveNext('Inventory Received')}
+                className={`flex-1 py-4 rounded-xl font-bold transition-all ${
+                  allPrepComplete ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                }`}
+              >
+                Prep Complete
+              </button>
+            </div>
           </div>
         )}
 
@@ -2320,15 +2380,25 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
               ))}
             </div>
 
-            <button
-              disabled={!allReceived}
-              onClick={() => moveNext('Production')}
-              className={`w-full py-4 rounded-xl font-bold transition-all ${
-                allReceived ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-slate-100 text-slate-400 cursor-not-allowed'
-              }`}
-            >
-              Goods Verified - Start Production
-            </button>
+            <div className="flex gap-3">
+              {previousStage && (
+                <button
+                  onClick={movePrevious}
+                  className="flex items-center gap-2 px-4 py-4 border-2 border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-100 transition-colors"
+                >
+                  <ArrowLeft size={18} /> Back
+                </button>
+              )}
+              <button
+                disabled={!allReceived}
+                onClick={() => moveNext('Production')}
+                className={`flex-1 py-4 rounded-xl font-bold transition-all ${
+                  allReceived ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                }`}
+              >
+                Goods Verified - Start Production
+              </button>
+            </div>
           </div>
         )}
 
@@ -2396,15 +2466,25 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
               {order.lineItems?.filter(li => li.packed).length || 0} of {order.lineItems?.length || 0} packed
             </div>
 
-            <button
-              disabled={!allProductionComplete}
-              onClick={() => moveNext('Fulfillment')}
-              className={`w-full py-4 rounded-xl font-bold transition-all ${
-                allProductionComplete ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-slate-100 text-slate-400 cursor-not-allowed'
-              }`}
-            >
-              Job Complete
-            </button>
+            <div className="flex gap-3">
+              {previousStage && (
+                <button
+                  onClick={movePrevious}
+                  className="flex items-center gap-2 px-4 py-4 border-2 border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-100 transition-colors"
+                >
+                  <ArrowLeft size={18} /> Back
+                </button>
+              )}
+              <button
+                disabled={!allProductionComplete}
+                onClick={() => moveNext('Fulfillment')}
+                className={`flex-1 py-4 rounded-xl font-bold transition-all ${
+                  allProductionComplete ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                }`}
+              >
+                Job Complete
+              </button>
+            </div>
           </div>
         )}
 
@@ -2473,15 +2553,25 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
               </div>
             </div>
 
-            <button
-              disabled={!fulfillmentReady}
-              onClick={() => moveNext('Invoice', { fulfillment: { ...order.fulfillment, fulfilledAt: new Date() } })}
-              className={`w-full py-4 rounded-xl font-bold transition-all ${
-                fulfillmentReady ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-slate-100 text-slate-400 cursor-not-allowed'
-              }`}
-            >
-              Order Fulfilled
-            </button>
+            <div className="flex gap-3">
+              {previousStage && (
+                <button
+                  onClick={movePrevious}
+                  className="flex items-center gap-2 px-4 py-4 border-2 border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-100 transition-colors"
+                >
+                  <ArrowLeft size={18} /> Back
+                </button>
+              )}
+              <button
+                disabled={!fulfillmentReady}
+                onClick={() => moveNext('Invoice', { fulfillment: { ...order.fulfillment, fulfilledAt: new Date() } })}
+                className={`flex-1 py-4 rounded-xl font-bold transition-all ${
+                  fulfillmentReady ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                }`}
+              >
+                Order Fulfilled
+              </button>
+            </div>
           </div>
         )}
 
@@ -2646,15 +2736,25 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
               )}
             </div>
 
-            <button
-              disabled={!invoiceComplete}
-              onClick={() => onUpdate({ ...order, status: 'Closeout' })}
-              className={`w-full py-4 rounded-xl font-bold transition-all ${
-                invoiceComplete ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-slate-100 text-slate-400 cursor-not-allowed'
-              }`}
-            >
-              Continue to Closeout
-            </button>
+            <div className="flex gap-3">
+              {previousStage && (
+                <button
+                  onClick={movePrevious}
+                  className="flex items-center gap-2 px-4 py-4 border-2 border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-100 transition-colors"
+                >
+                  <ArrowLeft size={18} /> Back to {previousStage}
+                </button>
+              )}
+              <button
+                disabled={!invoiceComplete}
+                onClick={() => onUpdate({ ...order, status: 'Closeout' })}
+                className={`flex-1 py-4 rounded-xl font-bold transition-all ${
+                  invoiceComplete ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                }`}
+              >
+                Continue to Closeout
+              </button>
+            </div>
           </div>
         )}
 
@@ -2742,21 +2842,31 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
               </div>
             </div>
 
-            <button
-              disabled={!closeoutComplete}
-              onClick={() => onUpdate({
-                ...order,
-                status: 'Closed',
-                closedAt: new Date(),
-                closedReason: 'Completed',
-                reopenedFrom: 'Closeout'
-              })}
-              className={`w-full py-4 rounded-xl font-bold transition-all ${
-                closeoutComplete ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-slate-100 text-slate-400 cursor-not-allowed'
-              }`}
-            >
-              Close & Archive Order
-            </button>
+            <div className="flex gap-3">
+              {previousStage && (
+                <button
+                  onClick={movePrevious}
+                  className="flex items-center gap-2 px-4 py-4 border-2 border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-100 transition-colors"
+                >
+                  <ArrowLeft size={18} /> Back to {previousStage}
+                </button>
+              )}
+              <button
+                disabled={!closeoutComplete}
+                onClick={() => onUpdate({
+                  ...order,
+                  status: 'Closed',
+                  closedAt: new Date(),
+                  closedReason: 'Completed',
+                  reopenedFrom: 'Closeout'
+                })}
+                className={`flex-1 py-4 rounded-xl font-bold transition-all ${
+                  closeoutComplete ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                }`}
+              >
+                Close & Archive Order
+              </button>
+            </div>
           </div>
         )}
 
