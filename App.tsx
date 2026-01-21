@@ -30,6 +30,8 @@ const AppContent: React.FC = () => {
   const [selectedCustomer, setSelectedCustomer] = useState<string>('');
   const [activeView, setActiveView] = useState<'orders' | 'settings' | 'reports' | 'fulfillment' | 'productionFloor'>('orders');
   const [showTestRunner, setShowTestRunner] = useState(false);
+  const [isDeadOpportunitiesActive, setIsDeadOpportunitiesActive] = useState(false);
+  const [deadOpportunitySearch, setDeadOpportunitySearch] = useState('');
 
   // Keyboard shortcut for test runner (Ctrl+Shift+T)
   useEffect(() => {
@@ -102,6 +104,27 @@ const AppContent: React.FC = () => {
       return acc;
     }, {} as Record<OrderStatus, number>);
   }, [orders]);
+
+  // Dead Opportunities: closed orders with closedReason = 'Dead Opportunity'
+  const deadOpportunities = useMemo(() => {
+    return orders.filter(o =>
+      !o.isArchived &&
+      o.status === 'Closed' &&
+      o.closedReason === 'Dead Opportunity'
+    );
+  }, [orders]);
+
+  // Filtered dead opportunities (by customer search)
+  const filteredDeadOpportunities = useMemo(() => {
+    if (!deadOpportunitySearch.trim()) return deadOpportunities;
+    const searchLower = deadOpportunitySearch.toLowerCase();
+    return deadOpportunities.filter(o =>
+      o.customer.toLowerCase().includes(searchLower) ||
+      o.customerEmail?.toLowerCase().includes(searchLower) ||
+      o.projectName.toLowerCase().includes(searchLower) ||
+      o.orderNumber.toLowerCase().includes(searchLower)
+    );
+  }, [deadOpportunities, deadOpportunitySearch]);
 
   // Stages that should display orders in columns by decoration type
   const DECORATION_COLUMN_STAGES: OrderStatus[] = ['Art Confirmation', 'Inventory Order', 'Production Prep'];
@@ -313,11 +336,19 @@ const AppContent: React.FC = () => {
           <WorkflowSidebar
             currentStage={currentStage}
             counts={countsByStage}
+            deadOpportunitiesCount={deadOpportunities.length}
             onStageSelect={(stage) => {
               setCurrentStage(stage);
               setActiveView('orders');
+              setIsDeadOpportunitiesActive(false);
             }}
             onNewOrder={() => setShowNewOrder(true)}
+            onDeadOpportunitiesClick={() => {
+              setIsDeadOpportunitiesActive(true);
+              setSelectedCustomer('');
+              setActiveView('orders');
+            }}
+            isDeadOpportunitiesActive={isDeadOpportunitiesActive}
             onProductionFloorClick={() => setActiveView('productionFloor')}
             isProductionFloorActive={true}
           />
@@ -336,11 +367,19 @@ const AppContent: React.FC = () => {
           <WorkflowSidebar
             currentStage={currentStage}
             counts={countsByStage}
+            deadOpportunitiesCount={deadOpportunities.length}
             onStageSelect={(stage) => {
               setCurrentStage(stage);
               setActiveView('orders');
+              setIsDeadOpportunitiesActive(false);
+              setDeadOpportunitySearch('');
             }}
             onNewOrder={() => setShowNewOrder(true)}
+            onDeadOpportunitiesClick={() => {
+              setIsDeadOpportunitiesActive(true);
+              setSelectedCustomer('');
+            }}
+            isDeadOpportunitiesActive={isDeadOpportunitiesActive}
             onProductionFloorClick={() => setActiveView('productionFloor')}
             isProductionFloorActive={activeView === 'productionFloor'}
           />
@@ -353,7 +392,11 @@ const AppContent: React.FC = () => {
                 <div className="w-96">
                   <CustomerSearch
                     orders={orders}
-                    onSelectCustomer={setSelectedCustomer}
+                    onSelectCustomer={(customer) => {
+                      setSelectedCustomer(customer);
+                      setIsDeadOpportunitiesActive(false);
+                      setDeadOpportunitySearch('');
+                    }}
                     placeholder="Search by business name..."
                   />
                 </div>
@@ -423,7 +466,67 @@ const AppContent: React.FC = () => {
                   </div>
                 )}
 
-                {selectedCustomer && customerOrdersByStage ? (
+                {isDeadOpportunitiesActive ? (
+                  // Dead Opportunities View
+                  <>
+                    <div className="flex items-center justify-between mb-6">
+                      <div>
+                        <h2 className="text-2xl font-black text-slate-900 mb-1">Dead Opportunities</h2>
+                        <p className="text-slate-500 text-sm">
+                          {filteredDeadOpportunities.length} of {deadOpportunities.length} killed leads and quotes
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Search Filter */}
+                    <div className="mb-6">
+                      <div className="relative max-w-md">
+                        <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                          type="text"
+                          placeholder="Search by customer, email, project, or order number..."
+                          value={deadOpportunitySearch}
+                          onChange={(e) => setDeadOpportunitySearch(e.target.value)}
+                          className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                        />
+                        {deadOpportunitySearch && (
+                          <button
+                            onClick={() => setDeadOpportunitySearch('')}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                          >
+                            <X size={16} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {filteredDeadOpportunities.length > 0 ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                        {filteredDeadOpportunities.map(order => (
+                          <div key={order.id} className="relative">
+                            <div className="absolute -top-2 -right-2 z-10 px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded-full">
+                              Dead
+                            </div>
+                            <OrderCard
+                              order={order}
+                              viewMode={viewMode}
+                              onClick={setSelectedOrder}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center h-64 bg-white border-2 border-dashed border-slate-200 rounded-2xl text-slate-400">
+                        <Search size={48} strokeWidth={1} className="mb-4" />
+                        <p className="font-medium">
+                          {deadOpportunitySearch
+                            ? `No dead opportunities matching "${deadOpportunitySearch}"`
+                            : 'No dead opportunities yet'}
+                        </p>
+                      </div>
+                    )}
+                  </>
+                ) : selectedCustomer && customerOrdersByStage ? (
                   // Customer-specific view: show orders grouped by stage
                   <div className="space-y-8">
                     {([...ORDER_STAGES, 'Closed'] as OrderStatus[]).map(stage => {

@@ -4,7 +4,7 @@ import {
   ChevronRight, Lock, Key, Users, Server, AlertTriangle,
   CheckCircle, Clock, Settings, HardDrive, FileDown, Layers,
   ArrowRight, GitBranch, Box, Upload, UserPlus, Trash2, Edit2,
-  LogOut, Building2, FileSpreadsheet
+  LogOut, Building2, FileSpreadsheet, Truck, Printer
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { Order, SCHEMA_DEFINITION, User, UserRole } from '../types';
@@ -16,7 +16,38 @@ interface SettingsPageProps {
   onDeleteOrders?: (orderIds: string[]) => void;
 }
 
-type SettingsTab = 'data' | 'schema' | 'sop' | 'specification' | 'security';
+type SettingsTab = 'data' | 'schema' | 'sop' | 'specification' | 'security' | 'company';
+
+// Company settings interface
+interface CompanySettings {
+  companyName: string;
+  contactName: string;
+  email: string;
+  phone: string;
+  address: string;
+  city: string;
+  state: string;
+  zip: string;
+  accountNumber: string;
+  taxId: string;
+  notes: string;
+}
+
+const COMPANY_SETTINGS_KEY = 'pallet-company-settings';
+
+const DEFAULT_COMPANY_SETTINGS: CompanySettings = {
+  companyName: '',
+  contactName: '',
+  email: '',
+  phone: '',
+  address: '',
+  city: '',
+  state: '',
+  zip: '',
+  accountNumber: '',
+  taxId: '',
+  notes: ''
+};
 
 const SettingsPage: React.FC<SettingsPageProps> = ({ orders, onClose, onDeleteOrders }) => {
   const [activeTab, setActiveTab] = useState<SettingsTab>('data');
@@ -56,6 +87,27 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ orders, onClose, onDeleteOr
   const [myConfirmPassword, setMyConfirmPassword] = useState('');
   const [myPasswordSuccess, setMyPasswordSuccess] = useState(false);
   const [myPasswordError, setMyPasswordError] = useState('');
+
+  // Company settings state (with localStorage persistence)
+  const [companySettings, setCompanySettings] = useState<CompanySettings>(() => {
+    const saved = localStorage.getItem(COMPANY_SETTINGS_KEY);
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        return DEFAULT_COMPANY_SETTINGS;
+      }
+    }
+    return DEFAULT_COMPANY_SETTINGS;
+  });
+  const [companySaveSuccess, setCompanySaveSuccess] = useState(false);
+
+  // Save company settings to localStorage
+  const saveCompanySettings = () => {
+    localStorage.setItem(COMPANY_SETTINGS_KEY, JSON.stringify(companySettings));
+    setCompanySaveSuccess(true);
+    setTimeout(() => setCompanySaveSuccess(false), 3000);
+  };
 
   // Handle admin resetting any user's password
   const handlePasswordChange = () => {
@@ -165,6 +217,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ orders, onClose, onDeleteOr
   };
 
   const tabs = [
+    { id: 'company' as SettingsTab, label: 'Company Info', icon: Building2 },
     { id: 'data' as SettingsTab, label: 'Data & Backups', icon: Database },
     { id: 'schema' as SettingsTab, label: 'Data Schema', icon: GitBranch },
     { id: 'sop' as SettingsTab, label: 'SOP & Training', icon: Book },
@@ -621,6 +674,179 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ orders, onClose, onDeleteOr
 
         {/* Content Area */}
         <div className="flex-1 overflow-y-auto p-8">
+          {/* Company Info Tab */}
+          {activeTab === 'company' && (
+            <div className="space-y-8 max-w-3xl">
+              <div>
+                <h3 className="text-xl font-bold text-slate-900 mb-2">Company Information</h3>
+                <p className="text-slate-500">Enter your company details for vendor purchase orders and inventory order sheets.</p>
+              </div>
+
+              {companySaveSuccess && (
+                <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center gap-3">
+                  <CheckCircle className="text-green-600" size={20} />
+                  <p className="text-green-800 font-medium">Company settings saved successfully!</p>
+                </div>
+              )}
+
+              <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-6">
+                <div className="flex items-center gap-3 pb-4 border-b border-slate-100">
+                  <Building2 className="text-blue-600" size={24} />
+                  <h4 className="text-lg font-bold text-slate-900">Company Details</h4>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="col-span-2">
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Company Name *</label>
+                    <input
+                      type="text"
+                      value={companySettings.companyName}
+                      onChange={(e) => setCompanySettings({ ...companySettings, companyName: e.target.value })}
+                      className="w-full border border-slate-200 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none"
+                      placeholder="Your Company Name"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Contact Name</label>
+                    <input
+                      type="text"
+                      value={companySettings.contactName}
+                      onChange={(e) => setCompanySettings({ ...companySettings, contactName: e.target.value })}
+                      className="w-full border border-slate-200 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none"
+                      placeholder="Primary Contact"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Phone</label>
+                    <input
+                      type="tel"
+                      value={companySettings.phone}
+                      onChange={(e) => setCompanySettings({ ...companySettings, phone: e.target.value })}
+                      className="w-full border border-slate-200 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none"
+                      placeholder="555-123-4567"
+                    />
+                  </div>
+
+                  <div className="col-span-2">
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Email</label>
+                    <input
+                      type="email"
+                      value={companySettings.email}
+                      onChange={(e) => setCompanySettings({ ...companySettings, email: e.target.value })}
+                      className="w-full border border-slate-200 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none"
+                      placeholder="orders@yourcompany.com"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-6">
+                <div className="flex items-center gap-3 pb-4 border-b border-slate-100">
+                  <Truck className="text-amber-600" size={24} />
+                  <h4 className="text-lg font-bold text-slate-900">Shipping Address</h4>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="col-span-2">
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Street Address</label>
+                    <input
+                      type="text"
+                      value={companySettings.address}
+                      onChange={(e) => setCompanySettings({ ...companySettings, address: e.target.value })}
+                      className="w-full border border-slate-200 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none"
+                      placeholder="123 Main Street"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-2">City</label>
+                    <input
+                      type="text"
+                      value={companySettings.city}
+                      onChange={(e) => setCompanySettings({ ...companySettings, city: e.target.value })}
+                      className="w-full border border-slate-200 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none"
+                      placeholder="City"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase mb-2">State</label>
+                      <input
+                        type="text"
+                        value={companySettings.state}
+                        onChange={(e) => setCompanySettings({ ...companySettings, state: e.target.value })}
+                        className="w-full border border-slate-200 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none"
+                        placeholder="ST"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase mb-2">ZIP</label>
+                      <input
+                        type="text"
+                        value={companySettings.zip}
+                        onChange={(e) => setCompanySettings({ ...companySettings, zip: e.target.value })}
+                        className="w-full border border-slate-200 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none"
+                        placeholder="12345"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-6">
+                <div className="flex items-center gap-3 pb-4 border-b border-slate-100">
+                  <FileSpreadsheet className="text-green-600" size={24} />
+                  <h4 className="text-lg font-bold text-slate-900">Vendor Account Information</h4>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Account Number</label>
+                    <input
+                      type="text"
+                      value={companySettings.accountNumber}
+                      onChange={(e) => setCompanySettings({ ...companySettings, accountNumber: e.target.value })}
+                      className="w-full border border-slate-200 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none"
+                      placeholder="Vendor account number"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Tax ID / EIN</label>
+                    <input
+                      type="text"
+                      value={companySettings.taxId}
+                      onChange={(e) => setCompanySettings({ ...companySettings, taxId: e.target.value })}
+                      className="w-full border border-slate-200 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none"
+                      placeholder="XX-XXXXXXX"
+                    />
+                  </div>
+
+                  <div className="col-span-2">
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Additional Notes for Orders</label>
+                    <textarea
+                      rows={3}
+                      value={companySettings.notes}
+                      onChange={(e) => setCompanySettings({ ...companySettings, notes: e.target.value })}
+                      className="w-full border border-slate-200 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none resize-none"
+                      placeholder="Special instructions, preferred shipping method, etc."
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <button
+                onClick={saveCompanySettings}
+                className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold hover:bg-blue-700 transition-colors shadow-lg shadow-blue-500/20"
+              >
+                Save Company Settings
+              </button>
+            </div>
+          )}
+
           {/* Data & Backups Tab */}
           {activeTab === 'data' && (
             <div className="space-y-8 max-w-5xl">

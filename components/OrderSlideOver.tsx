@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { X, Plus, Trash2, Check, AlertCircle, ShoppingCart, FileText, Package, Palette, Layers, Truck, Archive, ClipboardCheck, Printer, Settings, Users, Calendar, DollarSign, Phone, Mail, ThermometerSun, Target, Send, MessageSquare, Image, Link, Clock, Edit3, Eye, RefreshCw, CheckCircle2, XCircle, Upload, Download, File, FileImage, FilePlus, History, ChevronDown, ChevronUp, Paperclip, ArrowLeft } from 'lucide-react';
+import { X, Plus, Trash2, Check, AlertCircle, ShoppingCart, FileText, Package, Palette, Layers, Truck, Archive, ClipboardCheck, Printer, Settings, Users, Calendar, DollarSign, Phone, Mail, ThermometerSun, Target, Send, MessageSquare, Image, Link, Clock, Edit3, Eye, RefreshCw, CheckCircle2, XCircle, Upload, Download, File, FileImage, FilePlus, History, ChevronDown, ChevronUp, Paperclip, ArrowLeft, Building2 } from 'lucide-react';
 import { Order, OrderStatus, ViewMode, LineItem, ProductionMethod, STAGE_NUMBER, LeadSource, LeadTemperature, LeadInfo, ArtPlacement, ArtProof, ArtConfirmation, ArtFile, ArtRevision, ArtFileType } from '../types';
 import { calculatePrice } from '../utils/pricing';
 import { DEFAULT_LEAD_INFO, DEFAULT_ART_CONFIRMATION, ORDER_STAGES } from '../constants';
@@ -1616,11 +1616,42 @@ const ClosedOrderPanel: React.FC<ClosedOrderPanelProps> = ({ order, onUpdate }) 
   );
 };
 
+// Company settings interface (matches SettingsPage)
+interface CompanySettings {
+  companyName: string;
+  contactName: string;
+  email: string;
+  phone: string;
+  address: string;
+  city: string;
+  state: string;
+  zip: string;
+  accountNumber: string;
+  taxId: string;
+  notes: string;
+}
+
+const COMPANY_SETTINGS_KEY = 'pallet-company-settings';
+
 const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClose, onUpdate, onDeleteQuote, initialShowAddItem, onAddItemOpened }) => {
   const { permissions } = useAuth();
   const [showAddItem, setShowAddItem] = useState(initialShowAddItem || false);
   const [skuConfig, setSkuConfig] = useState<SkuConfig>(createEmptySkuConfig());
   const [showDeleteQuoteModal, setShowDeleteQuoteModal] = useState(false);
+  const [showPurchaseOrder, setShowPurchaseOrder] = useState(false);
+
+  // Load company settings from localStorage
+  const getCompanySettings = (): CompanySettings => {
+    const saved = localStorage.getItem(COMPANY_SETTINGS_KEY);
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        return { companyName: '', contactName: '', email: '', phone: '', address: '', city: '', state: '', zip: '', accountNumber: '', taxId: '', notes: '' };
+      }
+    }
+    return { companyName: '', contactName: '', email: '', phone: '', address: '', city: '', state: '', zip: '', accountNumber: '', taxId: '', notes: '' };
+  };
 
   // Notify parent that Add Item was opened (to reset the flag)
   React.useEffect(() => {
@@ -1912,22 +1943,46 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
   return (
     <div className="fixed inset-y-0 right-0 w-[700px] bg-white shadow-2xl z-50 flex flex-col transform transition-transform duration-300">
       {/* Header */}
-      <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-        <div>
-          <div className="flex items-center gap-2">
-            <h2 className="text-2xl font-bold text-slate-900">{order.customer}</h2>
-            {order.rushOrder && (
-              <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-bold rounded-full">RUSH</span>
-            )}
-            {STAGE_NUMBER[order.status] > 3 && order.artStatus === 'Pending' && (
-              <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-xs font-bold rounded-full">ART PENDING</span>
-            )}
+      <div className="p-6 border-b border-slate-100 bg-slate-50">
+        <div className="flex justify-between items-start">
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-2xl font-bold text-slate-900">{order.customer}</h2>
+              {order.rushOrder && (
+                <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-bold rounded-full">RUSH</span>
+              )}
+              {STAGE_NUMBER[order.status] > 3 && order.artStatus === 'Pending' && (
+                <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-xs font-bold rounded-full">ART PENDING</span>
+              )}
+            </div>
+            <p className="text-slate-500 font-medium">{order.orderNumber} | {order.projectName}</p>
+
+            {/* Contact Info & PO */}
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-sm">
+              {order.customerEmail && (
+                <span className="flex items-center gap-1 text-slate-600">
+                  <Mail size={14} className="text-slate-400" />
+                  {order.customerEmail}
+                </span>
+              )}
+              {order.customerPhone && (
+                <span className="flex items-center gap-1 text-slate-600">
+                  <Phone size={14} className="text-slate-400" />
+                  {order.customerPhone}
+                </span>
+              )}
+              {order.poNumbers?.primary && (
+                <span className="flex items-center gap-1 text-amber-700 font-semibold">
+                  <FileText size={14} className="text-amber-500" />
+                  PO: {order.poNumbers.primary}
+                </span>
+              )}
+            </div>
           </div>
-          <p className="text-slate-500 font-medium">{order.orderNumber} | {order.projectName}</p>
+          <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-full transition-colors">
+            <X size={24} />
+          </button>
         </div>
-        <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-full transition-colors">
-          <X size={24} />
-        </button>
       </div>
 
       <div className="flex-1 overflow-y-auto p-6 space-y-8">
@@ -2186,6 +2241,67 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
             <p className="text-xs text-slate-400 text-center">
               Lead info will be preserved and available throughout the order process
             </p>
+
+            {/* Mark Lead as Dead Opportunity Button */}
+            {onDeleteQuote && (
+              <button
+                onClick={() => setShowDeleteQuoteModal(true)}
+                className="w-full mt-4 py-3 text-slate-600 border-2 border-slate-200 rounded-xl font-bold hover:bg-slate-50 transition-colors flex items-center justify-center gap-2"
+              >
+                <XCircle size={18} /> Mark as Dead Opportunity
+              </button>
+            )}
+
+            {/* Dead Opportunity Confirmation Modal for Leads */}
+            {showDeleteQuoteModal && (
+              <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
+                <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+                  <div className="p-6 border-b border-slate-100">
+                    <h3 className="text-xl font-bold text-slate-900">Move Lead to Dead Opportunities</h3>
+                    <p className="text-slate-500 text-sm mt-1">This lead will be archived but the full record will be kept</p>
+                  </div>
+
+                  <div className="p-6 space-y-4">
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+                      <p className="text-slate-700 text-sm">
+                        <span className="font-bold">Lead:</span> {order.orderNumber}
+                      </p>
+                      <p className="text-slate-600 text-sm mt-1">
+                        <span className="font-bold">Customer:</span> {order.customer}
+                        {order.customerEmail && <span className="block text-xs mt-1">{order.customerEmail}</span>}
+                        {order.customerPhone && <span className="block text-xs">{order.customerPhone}</span>}
+                      </p>
+                      {order.leadInfo?.estimatedValue && (
+                        <p className="text-slate-500 text-xs mt-2">
+                          Est. Value: ${order.leadInfo.estimatedValue.toLocaleString()}
+                        </p>
+                      )}
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        onDeleteQuote(order.id, false);
+                        setShowDeleteQuoteModal(false);
+                        onClose();
+                      }}
+                      className="w-full p-4 border-2 border-red-200 bg-red-50 rounded-xl hover:bg-red-100 transition-colors text-left"
+                    >
+                      <p className="font-bold text-red-800">Move to Dead Opportunities</p>
+                      <p className="text-red-600 text-sm">Archive this lead - can be recovered later if needed</p>
+                    </button>
+                  </div>
+
+                  <div className="p-4 border-t border-slate-100 bg-slate-50">
+                    <button
+                      onClick={() => setShowDeleteQuoteModal(false)}
+                      className="w-full py-3 text-slate-600 font-bold hover:bg-slate-200 rounded-xl transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -2413,6 +2529,56 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
             {/* Approved Artwork Panel */}
             <ApprovedArtworkPanel order={order} />
 
+            {/* PO Numbers Section */}
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <FileText size={18} className="text-amber-600" />
+                <h4 className="font-bold text-amber-800">Purchase Order Numbers</h4>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-amber-700 uppercase mb-1">Primary PO *</label>
+                  <input
+                    type="text"
+                    placeholder="PO-12345"
+                    value={order.poNumbers?.primary || ''}
+                    onChange={(e) => onUpdate({
+                      ...order,
+                      poNumbers: { ...order.poNumbers, primary: e.target.value }
+                    })}
+                    className="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-amber-500 outline-none bg-white"
+                  />
+                  <p className="text-xs text-amber-600 mt-1">Travels with order</p>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-amber-700 uppercase mb-1">Secondary PO</label>
+                  <input
+                    type="text"
+                    placeholder="Optional"
+                    value={order.poNumbers?.secondary || ''}
+                    onChange={(e) => onUpdate({
+                      ...order,
+                      poNumbers: { ...order.poNumbers, secondary: e.target.value }
+                    })}
+                    className="w-full border border-amber-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-amber-500 outline-none bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-amber-700 uppercase mb-1">Tertiary PO</label>
+                  <input
+                    type="text"
+                    placeholder="Optional"
+                    value={order.poNumbers?.tertiary || ''}
+                    onChange={(e) => onUpdate({
+                      ...order,
+                      poNumbers: { ...order.poNumbers, tertiary: e.target.value }
+                    })}
+                    className="w-full border border-amber-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-amber-500 outline-none bg-white"
+                  />
+                </div>
+              </div>
+            </div>
+
             <div className="flex justify-between items-center">
               <h3 className="text-lg font-bold flex items-center gap-2">
                 <ShoppingCart size={20} className="text-slate-400" />
@@ -2444,6 +2610,14 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
                 </div>
               ))}
             </div>
+
+            {/* Generate Purchase Order Button */}
+            <button
+              onClick={() => setShowPurchaseOrder(true)}
+              className="w-full py-3 border-2 border-blue-200 text-blue-600 rounded-xl font-bold hover:bg-blue-50 transition-colors flex items-center justify-center gap-2"
+            >
+              <Printer size={18} /> Generate Vendor Purchase Order
+            </button>
 
             <div className="flex gap-3">
               {previousStage && (
@@ -3125,6 +3299,149 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
           <ClosedOrderPanel order={order} onUpdate={onUpdate} />
         )}
       </div>
+
+      {/* Purchase Order Modal */}
+      {showPurchaseOrder && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
+          <div className="bg-white rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col">
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+              <div>
+                <h3 className="text-xl font-bold text-slate-900">Vendor Purchase Order</h3>
+                <p className="text-slate-500 text-sm">Order #{order.orderNumber}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => window.print()}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 flex items-center gap-2"
+                >
+                  <Printer size={16} /> Print
+                </button>
+                <button
+                  onClick={() => setShowPurchaseOrder(false)}
+                  className="p-2 hover:bg-slate-200 rounded-full transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-8" id="purchase-order-content">
+              {(() => {
+                const company = getCompanySettings();
+                return (
+                  <div className="space-y-6 max-w-3xl mx-auto">
+                    {/* Header */}
+                    <div className="text-center border-b-2 border-slate-900 pb-4">
+                      <h1 className="text-2xl font-black text-slate-900">{company.companyName || 'Your Company Name'}</h1>
+                      <p className="text-slate-600">PURCHASE ORDER</p>
+                    </div>
+
+                    {/* Company & Order Info */}
+                    <div className="grid grid-cols-2 gap-8">
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-500 uppercase mb-2">Ship To:</h4>
+                        <div className="text-sm text-slate-700">
+                          <p className="font-bold">{company.companyName}</p>
+                          {company.contactName && <p>{company.contactName}</p>}
+                          {company.address && <p>{company.address}</p>}
+                          {(company.city || company.state || company.zip) && (
+                            <p>{company.city}{company.city && company.state && ', '}{company.state} {company.zip}</p>
+                          )}
+                          {company.phone && <p>Phone: {company.phone}</p>}
+                          {company.email && <p>Email: {company.email}</p>}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="bg-slate-100 rounded-lg p-4 inline-block text-left">
+                          <p className="text-xs font-bold text-slate-500 uppercase">PO Number</p>
+                          <p className="text-lg font-bold text-slate-900">{order.poNumbers?.primary || order.orderNumber}</p>
+                          <p className="text-xs font-bold text-slate-500 uppercase mt-2">Date</p>
+                          <p className="text-sm text-slate-700">{new Date().toLocaleDateString()}</p>
+                          {company.accountNumber && (
+                            <>
+                              <p className="text-xs font-bold text-slate-500 uppercase mt-2">Account #</p>
+                              <p className="text-sm text-slate-700">{company.accountNumber}</p>
+                            </>
+                          )}
+                          {order.dueDate && (
+                            <>
+                              <p className="text-xs font-bold text-slate-500 uppercase mt-2">Need By</p>
+                              <p className="text-sm text-slate-700">{new Date(order.dueDate).toLocaleDateString()}</p>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Project Info */}
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <p className="text-xs font-bold text-blue-600 uppercase">Project</p>
+                      <p className="font-bold text-blue-900">{order.projectName}</p>
+                      <p className="text-sm text-blue-700">Customer: {order.customer}</p>
+                    </div>
+
+                    {/* Line Items Table */}
+                    <div className="border border-slate-200 rounded-lg overflow-hidden">
+                      <table className="w-full text-sm">
+                        <thead className="bg-slate-800 text-white">
+                          <tr>
+                            <th className="text-left px-4 py-3 font-bold">Item #</th>
+                            <th className="text-left px-4 py-3 font-bold">Description</th>
+                            <th className="text-left px-4 py-3 font-bold">Color</th>
+                            <th className="text-left px-4 py-3 font-bold">Size</th>
+                            <th className="text-right px-4 py-3 font-bold">Qty</th>
+                            <th className="text-right px-4 py-3 font-bold">Unit Cost</th>
+                            <th className="text-right px-4 py-3 font-bold">Total</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {order.lineItems?.map((item, idx) => (
+                            <tr key={item.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
+                              <td className="px-4 py-3 font-mono">{item.itemNumber}</td>
+                              <td className="px-4 py-3">{item.name}</td>
+                              <td className="px-4 py-3">{item.color}</td>
+                              <td className="px-4 py-3">{item.size}</td>
+                              <td className="px-4 py-3 text-right font-bold">{item.qty}</td>
+                              <td className="px-4 py-3 text-right">${item.cost?.toFixed(2) || '0.00'}</td>
+                              <td className="px-4 py-3 text-right font-bold">${((item.cost || 0) * item.qty).toFixed(2)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot className="bg-slate-100 border-t-2 border-slate-300">
+                          <tr>
+                            <td colSpan={4} className="px-4 py-3 text-right font-bold">Total Items:</td>
+                            <td className="px-4 py-3 text-right font-bold">
+                              {order.lineItems?.reduce((sum, item) => sum + item.qty, 0) || 0}
+                            </td>
+                            <td className="px-4 py-3 text-right font-bold">Subtotal:</td>
+                            <td className="px-4 py-3 text-right font-bold">
+                              ${order.lineItems?.reduce((sum, item) => sum + ((item.cost || 0) * item.qty), 0).toFixed(2) || '0.00'}
+                            </td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+
+                    {/* Notes */}
+                    {company.notes && (
+                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                        <p className="text-xs font-bold text-amber-600 uppercase mb-1">Special Instructions</p>
+                        <p className="text-sm text-amber-800">{company.notes}</p>
+                      </div>
+                    )}
+
+                    {/* Footer */}
+                    <div className="border-t-2 border-slate-200 pt-4 text-center text-xs text-slate-500">
+                      <p>Generated by Pallet Production Management System</p>
+                      <p>Generated on {new Date().toLocaleString()}</p>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add Item Modal */}
       {showAddItem && (

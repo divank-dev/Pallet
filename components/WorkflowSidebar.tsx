@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Plus, ChevronRight, Target, Archive, Monitor } from 'lucide-react';
+import { Plus, ChevronRight, Target, Archive, Monitor, XCircle } from 'lucide-react';
 import { OrderStatus } from '../types';
 import { ORDER_STAGES } from '../constants';
 import { useAuth } from '../contexts/AuthContext';
@@ -8,13 +8,16 @@ import { useAuth } from '../contexts/AuthContext';
 interface WorkflowSidebarProps {
   currentStage: OrderStatus;
   counts: Record<OrderStatus, number>;
+  deadOpportunitiesCount?: number;
   onStageSelect: (stage: OrderStatus) => void;
   onNewOrder: () => void;
+  onDeadOpportunitiesClick?: () => void;
+  isDeadOpportunitiesActive?: boolean;
   onProductionFloorClick?: () => void;
   isProductionFloorActive?: boolean;
 }
 
-const WorkflowSidebar: React.FC<WorkflowSidebarProps> = ({ currentStage, counts, onStageSelect, onNewOrder, onProductionFloorClick, isProductionFloorActive }) => {
+const WorkflowSidebar: React.FC<WorkflowSidebarProps> = ({ currentStage, counts, deadOpportunitiesCount = 0, onStageSelect, onNewOrder, onDeadOpportunitiesClick, isDeadOpportunitiesActive, onProductionFloorClick, isProductionFloorActive }) => {
   const { permissions } = useAuth();
 
   // Separate Lead from the rest of the workflow stages
@@ -45,25 +48,56 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = ({ currentStage, counts,
           <button
             onClick={() => onStageSelect(leadStage)}
             className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-all group ${
-              currentStage === leadStage
+              currentStage === leadStage && !isDeadOpportunitiesActive
                 ? 'bg-emerald-50 text-emerald-700'
                 : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
             }`}
           >
             <div className="flex items-center gap-3">
               <div className={`w-1.5 h-1.5 rounded-full ${
-                currentStage === leadStage ? 'bg-emerald-600' : 'bg-slate-300'
+                currentStage === leadStage && !isDeadOpportunitiesActive ? 'bg-emerald-600' : 'bg-slate-300'
               }`} />
               <span className="text-sm font-medium">{leadStage}</span>
             </div>
             <div className="flex items-center gap-2">
               <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${
-                currentStage === leadStage ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
+                currentStage === leadStage && !isDeadOpportunitiesActive ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
               }`}>
                 {counts[leadStage] || 0}
               </span>
               <ChevronRight size={14} className={`opacity-0 group-hover:opacity-100 transition-opacity ${
-                currentStage === leadStage ? 'text-emerald-400' : 'text-slate-300'
+                currentStage === leadStage && !isDeadOpportunitiesActive ? 'text-emerald-400' : 'text-slate-300'
+              }`} />
+            </div>
+          </button>
+
+          {/* Dead Opportunities */}
+          <button
+            onClick={onDeadOpportunitiesClick}
+            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-all group ${
+              isDeadOpportunitiesActive
+                ? 'bg-red-50 text-red-700'
+                : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
+                isDeadOpportunitiesActive
+                  ? 'bg-red-600 text-white'
+                  : 'bg-red-100 text-red-500'
+              }`}>
+                <XCircle size={12} />
+              </div>
+              <span className="text-sm font-medium">Dead Opportunities</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${
+                isDeadOpportunitiesActive ? 'bg-red-100 text-red-700' : 'bg-red-50 text-red-500'
+              }`}>
+                {deadOpportunitiesCount}
+              </span>
+              <ChevronRight size={14} className={`opacity-0 group-hover:opacity-100 transition-opacity ${
+                isDeadOpportunitiesActive ? 'text-red-400' : 'text-slate-300'
               }`} />
             </div>
           </button>

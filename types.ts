@@ -313,6 +313,13 @@ export interface Order {
   rushOrder: boolean;
   notes?: string;
 
+  // Purchase Order Numbers (entered during Inventory Order stage)
+  poNumbers?: {
+    primary?: string;      // Primary PO - travels with the order
+    secondary?: string;    // Secondary PO
+    tertiary?: string;     // Tertiary PO
+  };
+
   // Line items
   lineItems: LineItem[];
 
