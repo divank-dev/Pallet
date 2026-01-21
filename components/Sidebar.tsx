@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { ShoppingBag, Box, Settings, Shirt, BarChart3 } from 'lucide-react';
+import { ShoppingBag, Box, Settings, Shirt, BarChart3, LogOut } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 interface SidebarProps {
@@ -12,7 +12,7 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ activeView, onSettingsClick, onOrdersClick, onReportsClick, onFulfillmentClick }) => {
-  const { permissions } = useAuth();
+  const { permissions, logout, currentUser } = useAuth();
 
   const items = [
     { icon: ShoppingBag, label: 'Orders', active: activeView === 'orders', onClick: onOrdersClick, visible: true },
@@ -22,23 +22,40 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, onSettingsClick, onOrders
   ].filter(item => item.visible);
 
   return (
-    <div className="w-20 bg-slate-900 h-full flex flex-col items-center py-6 gap-8">
+    <div className="w-20 bg-slate-900 h-full flex flex-col items-center py-6">
       <div className="text-blue-400 mb-4">
         <Shirt size={32} />
       </div>
-      {items.map((item) => (
+      <div className="flex flex-col items-center gap-4 flex-1">
+        {items.map((item) => (
+          <button
+            key={item.label}
+            onClick={item.onClick}
+            title={item.label}
+            className={`p-3 rounded-xl transition-all ${
+              item.active
+                ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800'
+            }`}
+          >
+            <item.icon size={24} />
+          </button>
+        ))}
+      </div>
+
+      {/* User info and Sign Out */}
+      <div className="mt-auto flex flex-col items-center gap-3 pt-4 border-t border-slate-700">
+        <div className="w-10 h-10 bg-slate-700 rounded-full flex items-center justify-center text-white font-bold text-sm" title={currentUser?.displayName}>
+          {currentUser?.displayName?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U'}
+        </div>
         <button
-          key={item.label}
-          onClick={item.onClick}
-          className={`p-3 rounded-xl transition-all ${
-            item.active
-              ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20'
-              : 'text-slate-400 hover:text-white hover:bg-slate-800'
-          }`}
+          onClick={logout}
+          title="Sign Out"
+          className="p-3 rounded-xl text-slate-400 hover:text-red-400 hover:bg-red-900/30 transition-all"
         >
-          <item.icon size={24} />
+          <LogOut size={20} />
         </button>
-      ))}
+      </div>
     </div>
   );
 };
