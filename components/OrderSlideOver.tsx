@@ -2300,32 +2300,40 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
               </button>
             </div>
 
-            {/* Delete Quote Button */}
+            {/* Mark as Dead Opportunity Button */}
             {onDeleteQuote && (
               <button
                 onClick={() => setShowDeleteQuoteModal(true)}
-                className="w-full mt-4 py-3 text-red-600 border-2 border-red-200 rounded-xl font-bold hover:bg-red-50 transition-colors flex items-center justify-center gap-2"
+                className="w-full mt-4 py-3 text-slate-600 border-2 border-slate-200 rounded-xl font-bold hover:bg-slate-50 transition-colors flex items-center justify-center gap-2"
               >
-                <Trash2 size={18} /> Delete Quote
+                <XCircle size={18} /> Mark as Dead Opportunity
               </button>
             )}
 
-            {/* Delete Quote Confirmation Modal */}
+            {/* Dead Opportunity Confirmation Modal */}
             {showDeleteQuoteModal && (
               <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
                 <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
                   <div className="p-6 border-b border-slate-100">
-                    <h3 className="text-xl font-bold text-slate-900">Delete Quote</h3>
-                    <p className="text-slate-500 text-sm mt-1">Choose how to handle this quote deletion</p>
+                    <h3 className="text-xl font-bold text-slate-900">Move to Dead Opportunities</h3>
+                    <p className="text-slate-500 text-sm mt-1">This quote will be archived but the full record will be kept</p>
                   </div>
 
                   <div className="p-6 space-y-4">
-                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-                      <p className="text-amber-800 text-sm">
-                        <span className="font-bold">Customer Info:</span> {order.customer}
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+                      <p className="text-slate-700 text-sm">
+                        <span className="font-bold">Quote:</span> {order.orderNumber}
+                      </p>
+                      <p className="text-slate-600 text-sm mt-1">
+                        <span className="font-bold">Customer:</span> {order.customer}
                         {order.customerEmail && <span className="block text-xs mt-1">{order.customerEmail}</span>}
                         {order.customerPhone && <span className="block text-xs">{order.customerPhone}</span>}
                       </p>
+                      {order.lineItems && order.lineItems.length > 0 && (
+                        <p className="text-slate-500 text-xs mt-2">
+                          {order.lineItems.length} line item{order.lineItems.length !== 1 ? 's' : ''} • ${grandTotal.toFixed(2)} total
+                        </p>
+                      )}
                     </div>
 
                     <button
@@ -2336,8 +2344,8 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
                       }}
                       className="w-full p-4 border-2 border-emerald-200 bg-emerald-50 rounded-xl hover:bg-emerald-100 transition-colors text-left"
                     >
-                      <p className="font-bold text-emerald-800">Keep as Lead</p>
-                      <p className="text-emerald-600 text-sm">Delete quote details but keep customer contact info as a new Lead</p>
+                      <p className="font-bold text-emerald-800">Archive & Create New Lead</p>
+                      <p className="text-emerald-600 text-sm">Move to Dead Opportunities and create a new Lead with customer info for future follow-up</p>
                     </button>
 
                     <button
@@ -2346,10 +2354,10 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
                         setShowDeleteQuoteModal(false);
                         onClose();
                       }}
-                      className="w-full p-4 border-2 border-red-200 bg-red-50 rounded-xl hover:bg-red-100 transition-colors text-left"
+                      className="w-full p-4 border-2 border-slate-200 bg-white rounded-xl hover:bg-slate-50 transition-colors text-left"
                     >
-                      <p className="font-bold text-red-800">Delete Entirely</p>
-                      <p className="text-red-600 text-sm">Permanently delete this quote and all associated data</p>
+                      <p className="font-bold text-slate-800">Archive Only</p>
+                      <p className="text-slate-600 text-sm">Move to Dead Opportunities and keep the full quote record</p>
                     </button>
                   </div>
 

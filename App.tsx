@@ -202,21 +202,43 @@ const AppContent: React.FC = () => {
     }
   };
 
-  // Handle deleting a quote (with option to keep as Lead)
-  const handleDeleteQuote = (orderId: string, keepAsLead: boolean) => {
-    const orderToDelete = orders.find(o => o.id === orderId);
-    if (!orderToDelete) return;
+  // Handle moving a quote to Dead Opportunities (with option to also create a Lead)
+  const handleDeleteQuote = (orderId: string, alsoCreateLead: boolean) => {
+    const orderToMove = orders.find(o => o.id === orderId);
+    if (!orderToMove) return;
 
-    if (keepAsLead) {
+    // Move the quote to Dead Opportunities (Closed with reason)
+    const deadOpportunity: Order = {
+      ...orderToMove,
+      status: 'Closed',
+      closedAt: new Date(),
+      closedReason: 'Dead Opportunity',
+      reopenedFrom: orderToMove.status,
+      history: [
+        ...orderToMove.history,
+        {
+          timestamp: new Date(),
+          userId: currentUser?.id,
+          userName: currentUser?.displayName,
+          action: 'Moved to Dead Opportunities',
+          previousValue: orderToMove.status,
+          newValue: 'Dead Opportunity',
+          notes: `Quote marked as dead opportunity by ${currentUser?.displayName}`
+        }
+      ],
+      updatedAt: new Date()
+    };
+
+    if (alsoCreateLead) {
       // Create a new Lead with the customer contact info
       const leadOrderNumber = `LEAD-${new Date().getFullYear()}-${String(Math.floor(1000 + Math.random() * 9000)).padStart(4, '0')}`;
       const newLead: Order = {
         id: leadOrderNumber,
         orderNumber: leadOrderNumber,
-        customer: orderToDelete.customer,
-        customerEmail: orderToDelete.customerEmail,
-        customerPhone: orderToDelete.customerPhone,
-        projectName: orderToDelete.projectName + ' (from deleted quote)',
+        customer: orderToMove.customer,
+        customerEmail: orderToMove.customerEmail,
+        customerPhone: orderToMove.customerPhone,
+        projectName: orderToMove.projectName + ' (new opportunity)',
         status: 'Lead',
         createdAt: new Date(),
         dueDate: '',
@@ -231,7 +253,7 @@ const AppContent: React.FC = () => {
           productInterest: '',
           decorationInterest: null,
           contactedAt: new Date(),
-          contactNotes: `Lead created from deleted quote ${orderToDelete.orderNumber}`
+          contactNotes: `Lead created from dead opportunity ${orderToMove.orderNumber}`
         },
         prepStatus: { gangSheetCreated: null, artworkDigitized: null, screensBurned: null },
         fulfillment: { method: null, shippingLabelPrinted: false, customerPickedUp: false },
@@ -242,21 +264,21 @@ const AppContent: React.FC = () => {
           timestamp: new Date(),
           userId: currentUser?.id,
           userName: currentUser?.displayName,
-          action: 'Lead created from deleted quote',
-          previousValue: orderToDelete.orderNumber,
+          action: 'Lead created from dead opportunity',
+          previousValue: orderToMove.orderNumber,
           newValue: 'Lead',
-          notes: `Original quote ${orderToDelete.orderNumber} was deleted, customer info preserved`
+          notes: `New lead created from dead opportunity ${orderToMove.orderNumber}`
         }],
         version: 1,
         isArchived: false
       };
 
-      // Remove the quote and add the new lead
-      setOrders(prev => [newLead, ...prev.filter(o => o.id !== orderId)]);
+      // Update the quote to dead opportunity and add the new lead
+      setOrders(prev => [newLead, ...prev.map(o => o.id === orderId ? deadOpportunity : o)]);
       setCurrentStage('Lead');
     } else {
-      // Just delete the quote entirely
-      setOrders(prev => prev.filter(o => o.id !== orderId));
+      // Just move to Dead Opportunities
+      setOrders(prev => prev.map(o => o.id === orderId ? deadOpportunity : o));
     }
 
     // Clear selection
