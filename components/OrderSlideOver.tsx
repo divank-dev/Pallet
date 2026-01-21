@@ -83,7 +83,8 @@ interface ArtInfoPanelProps {
 }
 
 const ArtInfoPanel: React.FC<ArtInfoPanelProps> = ({ order }) => {
-  const [expanded, setExpanded] = useState(false);
+  // Start expanded by default so artwork info is immediately visible
+  const [expanded, setExpanded] = useState(true);
 
   const artConfirmation = order.artConfirmation;
 
@@ -155,9 +156,7 @@ const ArtInfoPanel: React.FC<ArtInfoPanelProps> = ({ order }) => {
 
   const hasFiles = artworkFiles.length > 0;
   const hasContent = hasNotes || hasFiles || artConfirmation?.customerApprovalName;
-
-  // Don't show panel if there's no content at all
-  if (!hasContent && !isArtworkPending) return null;
+  const hasAnyArtInfo = hasContent || isArtworkPending || artConfirmation;
 
   // Determine styling based on art status
   const panelStyles = isArtworkApproved
@@ -202,6 +201,15 @@ const ArtInfoPanel: React.FC<ArtInfoPanelProps> = ({ order }) => {
                 <AlertCircle size={16} />
                 Art is not complete - Status: {order.artStatus || artConfirmation?.overallStatus || 'Not Started'}
               </p>
+            </div>
+          )}
+
+          {/* No Content Message */}
+          {!hasContent && !isArtworkApproved && (
+            <div className="text-center py-4 text-slate-400">
+              <Palette size={24} className="mx-auto mb-2 opacity-50" />
+              <p className="text-sm">No artwork files or notes added yet</p>
+              <p className="text-xs">Artwork info will appear here once added in Art Confirmation</p>
             </div>
           )}
 
@@ -2074,6 +2082,9 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
         {/* Stage 0: Lead */}
         {order.status === 'Lead' && (
           <div className="space-y-6">
+            {/* Art Info Panel */}
+            <ArtInfoPanel order={order} />
+
             <div className="flex items-center gap-3">
               <Target className="text-emerald-600" size={24} />
               <div>
@@ -3499,14 +3510,32 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
                       <div>
                         <h4 className="text-xs font-bold text-slate-500 uppercase mb-2">Ship To:</h4>
                         <div className="text-sm text-slate-700">
-                          <p className="font-bold">{company.companyName}</p>
-                          {company.contactName && <p>{company.contactName}</p>}
-                          {company.address && <p>{company.address}</p>}
-                          {(company.city || company.state || company.zip) && (
-                            <p>{company.city}{company.city && company.state && ', '}{company.state} {company.zip}</p>
+                          {/* Company Name */}
+                          <p className="font-bold text-lg">{company.companyName || 'Company Name'}</p>
+
+                          {/* Vendor Account Number */}
+                          {accountNumber && (
+                            <p className="font-bold text-slate-900 mt-1">
+                              Account #: <span className="font-mono">{accountNumber}</span>
+                            </p>
                           )}
-                          {company.phone && <p>Phone: {company.phone}</p>}
-                          {company.email && <p>Email: {company.email}</p>}
+
+                          {/* Shipping Address */}
+                          <div className="mt-2">
+                            {company.address && <p>{company.address}</p>}
+                            {(company.city || company.state || company.zip) && (
+                              <p>{company.city}{company.city && company.state && ', '}{company.state} {company.zip}</p>
+                            )}
+                          </div>
+
+                          {/* Contact Info */}
+                          {(company.phone || company.email) && (
+                            <div className="mt-2 pt-2 border-t border-slate-200">
+                              {company.phone && <p>Phone: {company.phone}</p>}
+                              {company.email && <p>Email: {company.email}</p>}
+                              {company.contactName && <p>Attn: {company.contactName}</p>}
+                            </div>
+                          )}
                         </div>
                       </div>
                       <div className="text-right">
@@ -3515,14 +3544,6 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
                           <p className="text-lg font-bold text-slate-900">{order.poNumbers?.primary || order.orderNumber}</p>
                           <p className="text-xs font-bold text-slate-500 uppercase mt-2">Date</p>
                           <p className="text-sm text-slate-700">{new Date().toLocaleDateString()}</p>
-                          {accountNumber && (
-                            <>
-                              <p className="text-xs font-bold text-slate-500 uppercase mt-2">
-                                {selectedVendor ? `${selectedVendor.name} Account #` : 'Account #'}
-                              </p>
-                              <p className="text-sm font-bold text-slate-900">{accountNumber}</p>
-                            </>
-                          )}
                           {order.dueDate && (
                             <>
                               <p className="text-xs font-bold text-slate-500 uppercase mt-2">Need By</p>
