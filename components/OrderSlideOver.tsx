@@ -2288,7 +2288,7 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
                   onClick={movePrevious}
                   className="flex items-center gap-2 px-4 py-4 border-2 border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-100 transition-colors"
                 >
-                  <ArrowLeft size={18} /> Back to {previousStage}
+                  <ArrowLeft size={18} /> Move Back One Stage
                 </button>
               )}
               <button
@@ -2388,7 +2388,7 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
                     onClick={movePrevious}
                     className="flex items-center gap-2 px-4 py-3 border-2 border-blue-200 text-blue-600 rounded-xl font-bold hover:bg-blue-100 transition-colors"
                   >
-                    <ArrowLeft size={18} /> Back to {previousStage}
+                    <ArrowLeft size={18} /> Move Back One Stage
                   </button>
                 )}
                 <button
@@ -2451,7 +2451,7 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
                   onClick={movePrevious}
                   className="flex items-center gap-2 px-4 py-4 border-2 border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-100 transition-colors"
                 >
-                  <ArrowLeft size={18} /> Back
+                  <ArrowLeft size={18} /> Move Back One Stage
                 </button>
               )}
               <button
@@ -2564,7 +2564,7 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
                   onClick={movePrevious}
                   className="flex items-center gap-2 px-4 py-4 border-2 border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-100 transition-colors"
                 >
-                  <ArrowLeft size={18} /> Back
+                  <ArrowLeft size={18} /> Move Back One Stage
                 </button>
               )}
               <button
@@ -2624,7 +2624,7 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
                   onClick={movePrevious}
                   className="flex items-center gap-2 px-4 py-4 border-2 border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-100 transition-colors"
                 >
-                  <ArrowLeft size={18} /> Back
+                  <ArrowLeft size={18} /> Move Back One Stage
                 </button>
               )}
               <button
@@ -2713,7 +2713,7 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
                   onClick={movePrevious}
                   className="flex items-center gap-2 px-4 py-4 border-2 border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-100 transition-colors"
                 >
-                  <ArrowLeft size={18} /> Back
+                  <ArrowLeft size={18} /> Move Back One Stage
                 </button>
               )}
               <button
@@ -2803,7 +2803,7 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
                   onClick={movePrevious}
                   className="flex items-center gap-2 px-4 py-4 border-2 border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-100 transition-colors"
                 >
-                  <ArrowLeft size={18} /> Back
+                  <ArrowLeft size={18} /> Move Back One Stage
                 </button>
               )}
               <button
@@ -2989,7 +2989,7 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
                   onClick={movePrevious}
                   className="flex items-center gap-2 px-4 py-4 border-2 border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-100 transition-colors"
                 >
-                  <ArrowLeft size={18} /> Back to {previousStage}
+                  <ArrowLeft size={18} /> Move Back One Stage
                 </button>
               )}
               <button
@@ -3098,7 +3098,7 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
                   onClick={movePrevious}
                   className="flex items-center gap-2 px-4 py-4 border-2 border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-100 transition-colors"
                 >
-                  <ArrowLeft size={18} /> Back to {previousStage}
+                  <ArrowLeft size={18} /> Move Back One Stage
                 </button>
               )}
               <button
