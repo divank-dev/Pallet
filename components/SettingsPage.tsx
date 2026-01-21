@@ -1696,6 +1696,101 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ orders, onClose, onDeleteOr
                   <li><strong>Store securely:</strong> Keep backups in a secure, off-site location</li>
                   <li><strong>Test restore:</strong> Periodically verify backups can be restored successfully</li>
                 </ul>
+
+                <h4 className="text-slate-900 font-bold border-b border-slate-200 pb-2 mt-8">7. Application Update Procedures</h4>
+                <p className="text-slate-600 mb-4">Follow these procedures to update the Pallet application without losing data. The application stores data in the browser's localStorage, which persists across application updates.</p>
+
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4">
+                  <h5 className="font-bold text-amber-800 m-0 mb-2 flex items-center gap-2">
+                    <span>⚠️</span> Important: Always Backup Before Updating
+                  </h5>
+                  <p className="text-amber-700 text-sm m-0">Before any update, export a complete backup using the System Backup (Excel) feature in Settings → Data & Backups.</p>
+                </div>
+
+                <h5 className="font-bold text-slate-800 mt-6 mb-2">7.1 Data Storage Locations</h5>
+                <p className="text-slate-600 mb-2">The application stores data in the following localStorage keys:</p>
+                <div className="bg-slate-100 rounded-lg p-4 font-mono text-sm mb-4">
+                  <pre className="m-0">{`localStorage Keys:
+├── pallet-orders          # All order data (orders, line items, history)
+├── pallet-auth            # Current user session
+├── pallet-org-hierarchy   # Users, departments, permissions
+└── pallet-productivity    # Production floor tracking data`}</pre>
+                </div>
+
+                <h5 className="font-bold text-slate-800 mt-6 mb-2">7.2 Pre-Update Checklist</h5>
+                <ol className="list-decimal pl-6 space-y-2">
+                  <li><strong>Notify users:</strong> Inform all users that an update will occur and they should save their work</li>
+                  <li><strong>Export System Backup:</strong> Go to Settings → Data & Backups → Download System Backup (Excel)</li>
+                  <li><strong>Export JSON Backup:</strong> Also download Full Database Export (JSON) as secondary backup</li>
+                  <li><strong>Verify backups:</strong> Open both files to confirm they contain current data</li>
+                  <li><strong>Store backups:</strong> Save backups to a secure location (network drive, cloud storage)</li>
+                  <li><strong>Document current version:</strong> Note the current Schema Version from Settings → Data & Backups</li>
+                </ol>
+
+                <h5 className="font-bold text-slate-800 mt-6 mb-2">7.3 Update Procedure</h5>
+                <ol className="list-decimal pl-6 space-y-2">
+                  <li><strong>Close all browser tabs:</strong> Ensure no users have the application open</li>
+                  <li><strong>Deploy new code:</strong> Upload the updated application files to the web server</li>
+                  <li><strong>Clear browser cache (if needed):</strong> Force refresh with Ctrl+Shift+R (Windows) or Cmd+Shift+R (Mac)</li>
+                  <li><strong>Verify application loads:</strong> Open the application and confirm it loads without errors</li>
+                  <li><strong>Check data integrity:</strong> Verify orders, users, and settings are intact</li>
+                  <li><strong>Test critical functions:</strong> Create a test order, verify stage transitions work</li>
+                </ol>
+
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 my-4">
+                  <h5 className="font-bold text-blue-800 m-0 mb-2">Note: localStorage Persists Automatically</h5>
+                  <p className="text-blue-700 text-sm m-0">Browser localStorage is NOT affected by application file updates. Your data will remain intact as long as you don't clear browser data or use a different browser/device.</p>
+                </div>
+
+                <h5 className="font-bold text-slate-800 mt-6 mb-2">7.4 Post-Update Verification</h5>
+                <ul className="list-disc pl-6 space-y-2">
+                  <li><strong>Login test:</strong> Verify admin and user logins work correctly</li>
+                  <li><strong>Order count:</strong> Compare order count with pre-update backup</li>
+                  <li><strong>User accounts:</strong> Verify all user accounts are present in Settings → Security</li>
+                  <li><strong>Stage transitions:</strong> Test advancing an order through stages</li>
+                  <li><strong>Export test:</strong> Verify backup exports still function</li>
+                </ul>
+
+                <h5 className="font-bold text-slate-800 mt-6 mb-2">7.5 Data Recovery (If Needed)</h5>
+                <p className="text-slate-600 mb-2">If data is lost or corrupted after update:</p>
+                <ol className="list-decimal pl-6 space-y-2">
+                  <li><strong>Don't panic:</strong> Your backup files contain all necessary data</li>
+                  <li><strong>Open browser console:</strong> Press F12 → Console tab</li>
+                  <li><strong>Restore from JSON backup:</strong> Use the following process:
+                    <div className="bg-slate-100 rounded-lg p-3 font-mono text-xs mt-2">
+                      <pre className="m-0">{`// 1. Load your backup JSON file
+// 2. In browser console, paste the orders data:
+localStorage.setItem('pallet-orders', JSON.stringify(backupData.orders));
+
+// 3. Refresh the page
+location.reload();`}</pre>
+                    </div>
+                  </li>
+                  <li><strong>Verify restoration:</strong> Check that all orders appear correctly</li>
+                  <li><strong>Re-import users (if needed):</strong> Use CSV import in Settings → Security</li>
+                </ol>
+
+                <h5 className="font-bold text-slate-800 mt-6 mb-2">7.6 Clearing Data (Fresh Start)</h5>
+                <p className="text-slate-600 mb-2">To completely reset the application (removes ALL data):</p>
+                <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                  <p className="text-red-700 text-sm mb-2"><strong>Warning:</strong> This will delete all orders, users, and settings permanently.</p>
+                  <div className="bg-white rounded-lg p-3 font-mono text-xs">
+                    <pre className="m-0">{`// In browser console (F12):
+localStorage.removeItem('pallet-orders');
+localStorage.removeItem('pallet-auth');
+localStorage.removeItem('pallet-org-hierarchy');
+localStorage.removeItem('pallet-productivity');
+location.reload();`}</pre>
+                  </div>
+                </div>
+
+                <h5 className="font-bold text-slate-800 mt-6 mb-2">7.7 Multi-Device Considerations</h5>
+                <ul className="list-disc pl-6 space-y-2">
+                  <li><strong>localStorage is device-specific:</strong> Each browser/device has its own data</li>
+                  <li><strong>Designate primary device:</strong> Use one computer as the "master" for data entry</li>
+                  <li><strong>Sync via exports:</strong> Export from primary device, import on secondary devices if needed</li>
+                  <li><strong>Future enhancement:</strong> Cloud sync will eliminate this limitation</li>
+                </ul>
               </div>
             </div>
           )}
