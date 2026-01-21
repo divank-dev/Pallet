@@ -202,6 +202,67 @@ const AppContent: React.FC = () => {
     }
   };
 
+  // Handle deleting a quote (with option to keep as Lead)
+  const handleDeleteQuote = (orderId: string, keepAsLead: boolean) => {
+    const orderToDelete = orders.find(o => o.id === orderId);
+    if (!orderToDelete) return;
+
+    if (keepAsLead) {
+      // Create a new Lead with the customer contact info
+      const leadOrderNumber = `LEAD-${new Date().getFullYear()}-${String(Math.floor(1000 + Math.random() * 9000)).padStart(4, '0')}`;
+      const newLead: Order = {
+        id: leadOrderNumber,
+        orderNumber: leadOrderNumber,
+        customer: orderToDelete.customer,
+        customerEmail: orderToDelete.customerEmail,
+        customerPhone: orderToDelete.customerPhone,
+        projectName: orderToDelete.projectName + ' (from deleted quote)',
+        status: 'Lead',
+        createdAt: new Date(),
+        dueDate: '',
+        lineItems: [],
+        artStatus: 'Not Started',
+        rushOrder: false,
+        leadInfo: {
+          source: 'Other',
+          temperature: 'Warm',
+          estimatedQuantity: 0,
+          estimatedValue: 0,
+          productInterest: '',
+          decorationInterest: null,
+          contactedAt: new Date(),
+          contactNotes: `Lead created from deleted quote ${orderToDelete.orderNumber}`
+        },
+        prepStatus: { gangSheetCreated: null, artworkDigitized: null, screensBurned: null },
+        fulfillment: { method: null, shippingLabelPrinted: false, customerPickedUp: false },
+        invoiceStatus: { invoiceCreated: false, invoiceSent: false, paymentReceived: false },
+        closeoutChecklist: { filesSaved: false, canvaArchived: false, summaryUploaded: false },
+        artConfirmation: { overallStatus: 'Not Started', placements: [], clientFiles: [], referenceFiles: [], revisionHistory: [] },
+        history: [{
+          timestamp: new Date(),
+          userId: currentUser?.id,
+          userName: currentUser?.displayName,
+          action: 'Lead created from deleted quote',
+          previousValue: orderToDelete.orderNumber,
+          newValue: 'Lead',
+          notes: `Original quote ${orderToDelete.orderNumber} was deleted, customer info preserved`
+        }],
+        version: 1,
+        isArchived: false
+      };
+
+      // Remove the quote and add the new lead
+      setOrders(prev => [newLead, ...prev.filter(o => o.id !== orderId)]);
+      setCurrentStage('Lead');
+    } else {
+      // Just delete the quote entirely
+      setOrders(prev => prev.filter(o => o.id !== orderId));
+    }
+
+    // Clear selection
+    setSelectedOrder(null);
+  };
+
   return (
     <div className="flex h-screen bg-slate-50">
       <Sidebar
@@ -477,6 +538,7 @@ const AppContent: React.FC = () => {
                   setAutoOpenAddItem(false);
                 }}
                 onUpdate={handleUpdateOrder}
+                onDeleteQuote={handleDeleteQuote}
                 initialShowAddItem={autoOpenAddItem}
                 onAddItemOpened={() => setAutoOpenAddItem(false)}
               />

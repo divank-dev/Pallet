@@ -10,6 +10,7 @@ interface OrderSlideOverProps {
   viewMode: ViewMode;
   onClose: () => void;
   onUpdate: (order: Order) => void;
+  onDeleteQuote?: (orderId: string, keepAsLead: boolean) => void;
   initialShowAddItem?: boolean;
   onAddItemOpened?: () => void;
 }
@@ -75,6 +76,160 @@ const PLACEMENT_LOCATIONS = [
   'Right Hip',
   'Other'
 ];
+
+// Approved Artwork Panel Component - Shows notes and artwork files on stages after Art Confirmation
+interface ApprovedArtworkPanelProps {
+  order: Order;
+}
+
+const ApprovedArtworkPanel: React.FC<ApprovedArtworkPanelProps> = ({ order }) => {
+  const [expanded, setExpanded] = useState(false);
+
+  // Check if artwork is approved
+  const isArtworkApproved = order.artStatus === 'Approved' ||
+    order.artConfirmation?.overallStatus === 'Approved';
+
+  if (!isArtworkApproved) return null;
+
+  const artConfirmation = order.artConfirmation;
+  const hasNotes = artConfirmation?.designerNotes || artConfirmation?.internalNotes;
+
+  // Collect all approved artwork files
+  const approvedFiles: { name: string; url: string; type: string; placement?: string }[] = [];
+
+  // Add files from approved placements/proofs
+  artConfirmation?.placements?.forEach(placement => {
+    placement.proofs?.forEach(proof => {
+      if (proof.status === 'Approved' || proof.status === 'Sent') {
+        proof.files?.forEach(file => {
+          approvedFiles.push({
+            name: file.fileName,
+            url: file.fileUrl,
+            type: file.fileType,
+            placement: placement.location
+          });
+        });
+      }
+    });
+  });
+
+  // Add client files
+  artConfirmation?.clientFiles?.forEach(file => {
+    approvedFiles.push({
+      name: file.fileName,
+      url: file.fileUrl,
+      type: 'Client File'
+    });
+  });
+
+  // Add mockup and original artwork URLs if available
+  if (artConfirmation?.mockupUrl) {
+    approvedFiles.push({
+      name: 'Product Mockup',
+      url: artConfirmation.mockupUrl,
+      type: 'Mockup'
+    });
+  }
+  if (artConfirmation?.originalArtworkUrl) {
+    approvedFiles.push({
+      name: 'Original Artwork',
+      url: artConfirmation.originalArtworkUrl,
+      type: 'Original'
+    });
+  }
+
+  const hasFiles = approvedFiles.length > 0;
+
+  if (!hasNotes && !hasFiles) return null;
+
+  return (
+    <div className="bg-green-50 border border-green-200 rounded-xl overflow-hidden">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full px-4 py-3 flex items-center justify-between hover:bg-green-100 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <CheckCircle2 size={18} className="text-green-600" />
+          <span className="font-bold text-green-800">Approved Artwork & Notes</span>
+          {approvedFiles.length > 0 && (
+            <span className="px-2 py-0.5 bg-green-200 text-green-700 text-xs font-bold rounded-full">
+              {approvedFiles.length} file{approvedFiles.length !== 1 ? 's' : ''}
+            </span>
+          )}
+        </div>
+        {expanded ? <ChevronUp size={18} className="text-green-600" /> : <ChevronDown size={18} className="text-green-600" />}
+      </button>
+
+      {expanded && (
+        <div className="px-4 pb-4 space-y-4">
+          {/* Notes Section */}
+          {hasNotes && (
+            <div className="space-y-3">
+              {artConfirmation?.designerNotes && (
+                <div className="bg-white rounded-lg p-3 border border-green-100">
+                  <p className="text-xs font-bold text-slate-500 uppercase mb-1">Designer Notes</p>
+                  <p className="text-sm text-slate-700">{artConfirmation.designerNotes}</p>
+                </div>
+              )}
+              {artConfirmation?.internalNotes && (
+                <div className="bg-white rounded-lg p-3 border border-green-100">
+                  <p className="text-xs font-bold text-slate-500 uppercase mb-1">Internal Notes</p>
+                  <p className="text-sm text-slate-700">{artConfirmation.internalNotes}</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Approval Info */}
+          {artConfirmation?.customerApprovalName && (
+            <div className="bg-white rounded-lg p-3 border border-green-100">
+              <p className="text-xs font-bold text-slate-500 uppercase mb-1">Approval Details</p>
+              <p className="text-sm text-slate-700">
+                Approved by <span className="font-bold">{artConfirmation.customerApprovalName}</span>
+                {artConfirmation.customerApprovalDate && (
+                  <span> on {new Date(artConfirmation.customerApprovalDate).toLocaleDateString()}</span>
+                )}
+                {artConfirmation.customerApprovalMethod && (
+                  <span> via {artConfirmation.customerApprovalMethod}</span>
+                )}
+              </p>
+            </div>
+          )}
+
+          {/* Artwork Files Section */}
+          {hasFiles && (
+            <div>
+              <p className="text-xs font-bold text-slate-500 uppercase mb-2">Artwork Files</p>
+              <div className="space-y-2">
+                {approvedFiles.map((file, index) => (
+                  <a
+                    key={index}
+                    href={file.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-between p-3 bg-white rounded-lg border border-green-100 hover:bg-green-50 hover:border-green-300 transition-colors group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <FileImage size={18} className="text-green-600" />
+                      <div>
+                        <p className="text-sm font-medium text-slate-800 group-hover:text-green-700">{file.name}</p>
+                        <p className="text-xs text-slate-500">
+                          {file.type}
+                          {file.placement && <span> • {file.placement}</span>}
+                        </p>
+                      </div>
+                    </div>
+                    <Download size={16} className="text-slate-400 group-hover:text-green-600" />
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
 
 // Art Confirmation Panel Component
 interface ArtConfirmationPanelProps {
@@ -1461,10 +1616,11 @@ const ClosedOrderPanel: React.FC<ClosedOrderPanelProps> = ({ order, onUpdate }) 
   );
 };
 
-const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClose, onUpdate, initialShowAddItem, onAddItemOpened }) => {
+const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClose, onUpdate, onDeleteQuote, initialShowAddItem, onAddItemOpened }) => {
   const { permissions } = useAuth();
   const [showAddItem, setShowAddItem] = useState(initialShowAddItem || false);
   const [skuConfig, setSkuConfig] = useState<SkuConfig>(createEmptySkuConfig());
+  const [showDeleteQuoteModal, setShowDeleteQuoteModal] = useState(false);
 
   // Notify parent that Add Item was opened (to reset the flag)
   React.useEffect(() => {
@@ -2140,9 +2296,74 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
                 onClick={() => moveNext('Approval')}
                 className="flex-1 bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed text-white py-4 rounded-xl font-bold hover:bg-green-700 transition-colors shadow-lg shadow-green-500/20"
               >
-                Submit Quote for Approval
+                Convert Quote to Order
               </button>
             </div>
+
+            {/* Delete Quote Button */}
+            {onDeleteQuote && (
+              <button
+                onClick={() => setShowDeleteQuoteModal(true)}
+                className="w-full mt-4 py-3 text-red-600 border-2 border-red-200 rounded-xl font-bold hover:bg-red-50 transition-colors flex items-center justify-center gap-2"
+              >
+                <Trash2 size={18} /> Delete Quote
+              </button>
+            )}
+
+            {/* Delete Quote Confirmation Modal */}
+            {showDeleteQuoteModal && (
+              <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
+                <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+                  <div className="p-6 border-b border-slate-100">
+                    <h3 className="text-xl font-bold text-slate-900">Delete Quote</h3>
+                    <p className="text-slate-500 text-sm mt-1">Choose how to handle this quote deletion</p>
+                  </div>
+
+                  <div className="p-6 space-y-4">
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                      <p className="text-amber-800 text-sm">
+                        <span className="font-bold">Customer Info:</span> {order.customer}
+                        {order.customerEmail && <span className="block text-xs mt-1">{order.customerEmail}</span>}
+                        {order.customerPhone && <span className="block text-xs">{order.customerPhone}</span>}
+                      </p>
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        onDeleteQuote(order.id, true);
+                        setShowDeleteQuoteModal(false);
+                        onClose();
+                      }}
+                      className="w-full p-4 border-2 border-emerald-200 bg-emerald-50 rounded-xl hover:bg-emerald-100 transition-colors text-left"
+                    >
+                      <p className="font-bold text-emerald-800">Keep as Lead</p>
+                      <p className="text-emerald-600 text-sm">Delete quote details but keep customer contact info as a new Lead</p>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        onDeleteQuote(order.id, false);
+                        setShowDeleteQuoteModal(false);
+                        onClose();
+                      }}
+                      className="w-full p-4 border-2 border-red-200 bg-red-50 rounded-xl hover:bg-red-100 transition-colors text-left"
+                    >
+                      <p className="font-bold text-red-800">Delete Entirely</p>
+                      <p className="text-red-600 text-sm">Permanently delete this quote and all associated data</p>
+                    </button>
+                  </div>
+
+                  <div className="p-4 border-t border-slate-100 bg-slate-50">
+                    <button
+                      onClick={() => setShowDeleteQuoteModal(false)}
+                      className="w-full py-3 text-slate-600 font-bold hover:bg-slate-200 rounded-xl transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -2181,6 +2402,9 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
         {/* Stage 4: Inventory Order */}
         {order.status === 'Inventory Order' && (
           <div className="space-y-6">
+            {/* Approved Artwork Panel */}
+            <ApprovedArtworkPanel order={order} />
+
             <div className="flex justify-between items-center">
               <h3 className="text-lg font-bold flex items-center gap-2">
                 <ShoppingCart size={20} className="text-slate-400" />
@@ -2238,6 +2462,9 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
         {/* Stage 5: Production Prep */}
         {order.status === 'Production Prep' && (
           <div className="space-y-6">
+            {/* Approved Artwork Panel */}
+            <ApprovedArtworkPanel order={order} />
+
             <div className="flex items-center gap-3">
               <Settings className="text-blue-600" size={24} />
               <div>
@@ -2348,6 +2575,9 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
         {/* Stage 6: Inventory Received */}
         {order.status === 'Inventory Received' && (
           <div className="space-y-6">
+            {/* Approved Artwork Panel */}
+            <ApprovedArtworkPanel order={order} />
+
             <div className="flex justify-between items-center">
               <h3 className="text-lg font-bold flex items-center gap-2">
                 <Package size={20} className="text-slate-400" />
@@ -2405,6 +2635,9 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
         {/* Stage 7: Production (Run Sheet) */}
         {order.status === 'Production' && (
           <div className="space-y-6">
+            {/* Approved Artwork Panel */}
+            <ApprovedArtworkPanel order={order} />
+
             <div className="flex justify-between items-center">
               <h3 className="text-lg font-bold flex items-center gap-2">
                 <ClipboardCheck size={20} className="text-slate-400" />
@@ -2491,6 +2724,9 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
         {/* Stage 8: Fulfillment */}
         {order.status === 'Fulfillment' && (
           <div className="space-y-6">
+            {/* Approved Artwork Panel */}
+            <ApprovedArtworkPanel order={order} />
+
             <div className="flex items-center gap-3">
               <Truck className="text-blue-600" size={24} />
               <div>
@@ -2578,6 +2814,9 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
         {/* Stage 9: Invoice */}
         {order.status === 'Invoice' && (
           <div className="space-y-6">
+            {/* Approved Artwork Panel */}
+            <ApprovedArtworkPanel order={order} />
+
             <div className="flex items-center gap-3">
               <DollarSign className="text-green-600" size={24} />
               <div>
@@ -2761,6 +3000,9 @@ const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClos
         {/* Stage 10: Closeout */}
         {order.status === 'Closeout' && (
           <div className="space-y-6">
+            {/* Approved Artwork Panel */}
+            <ApprovedArtworkPanel order={order} />
+
             <div className="flex items-center gap-3">
               <Archive className="text-purple-600" size={24} />
               <div>
