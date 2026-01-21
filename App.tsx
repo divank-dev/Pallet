@@ -26,6 +26,7 @@ const AppContent: React.FC = () => {
   const [viewMode, setViewMode] = useState<ViewMode>('Sales');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [showNewOrder, setShowNewOrder] = useState(false);
+  const [autoOpenAddItem, setAutoOpenAddItem] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<string>('');
   const [activeView, setActiveView] = useState<'orders' | 'settings' | 'reports' | 'fulfillment' | 'productionFloor'>('orders');
   const [showTestRunner, setShowTestRunner] = useState(false);
@@ -134,6 +135,12 @@ const AppContent: React.FC = () => {
     setOrders(prev => [orderWithAudit, ...prev]);
     setShowNewOrder(false);
     setCurrentStage(newOrder.status || 'Lead');
+
+    // If creating a quote, automatically open the order detail with Add Item form
+    if (newOrder.status === 'Quote') {
+      setSelectedOrder(orderWithAudit);
+      setAutoOpenAddItem(true);
+    }
   };
 
   // Handle deleting orders (Admin only)
@@ -357,13 +364,21 @@ const AppContent: React.FC = () => {
             <>
               <div
                 className="fixed inset-0 bg-slate-900/40 backdrop-blur-[2px] z-40 animate-in fade-in duration-300"
-                onClick={() => setSelectedOrder(null)}
+                onClick={() => {
+                  setSelectedOrder(null);
+                  setAutoOpenAddItem(false);
+                }}
               />
               <OrderSlideOver
                 order={selectedOrder}
                 viewMode={viewMode}
-                onClose={() => setSelectedOrder(null)}
+                onClose={() => {
+                  setSelectedOrder(null);
+                  setAutoOpenAddItem(false);
+                }}
                 onUpdate={handleUpdateOrder}
+                initialShowAddItem={autoOpenAddItem}
+                onAddItemOpened={() => setAutoOpenAddItem(false)}
               />
             </>
           )}

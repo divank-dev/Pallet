@@ -10,6 +10,8 @@ interface OrderSlideOverProps {
   viewMode: ViewMode;
   onClose: () => void;
   onUpdate: (order: Order) => void;
+  initialShowAddItem?: boolean;
+  onAddItemOpened?: () => void;
 }
 
 const DECORATION_TYPES: { value: ProductionMethod; label: string }[] = [
@@ -1459,10 +1461,17 @@ const ClosedOrderPanel: React.FC<ClosedOrderPanelProps> = ({ order, onUpdate }) 
   );
 };
 
-const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClose, onUpdate }) => {
+const OrderSlideOver: React.FC<OrderSlideOverProps> = ({ order, viewMode, onClose, onUpdate, initialShowAddItem, onAddItemOpened }) => {
   const { permissions } = useAuth();
-  const [showAddItem, setShowAddItem] = useState(false);
+  const [showAddItem, setShowAddItem] = useState(initialShowAddItem || false);
   const [skuConfig, setSkuConfig] = useState<SkuConfig>(createEmptySkuConfig());
+
+  // Notify parent that Add Item was opened (to reset the flag)
+  React.useEffect(() => {
+    if (initialShowAddItem && onAddItemOpened) {
+      onAddItemOpened();
+    }
+  }, [initialShowAddItem, onAddItemOpened]);
 
   const openAddItemModal = () => {
     setSkuConfig(createEmptySkuConfig());
